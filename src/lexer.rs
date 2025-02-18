@@ -14,7 +14,9 @@ impl<'i> Iterator for Lexer<'i> {
     type Item = Token<'i>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ch = self.input.chars().next()?;
+        let mut chars = self.input.chars();
+        let ch = chars.next()?;
+        self.input = chars.as_str();
 
         let t = match ch {
             '=' => Token::Assign,
@@ -27,7 +29,6 @@ impl<'i> Iterator for Lexer<'i> {
             '+' => Token::Plus,
             _ => Token::Illegal,
         };
-        self.input = &self.input[1..];
 
         Some(t)
     }
