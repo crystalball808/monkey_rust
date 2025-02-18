@@ -2,17 +2,11 @@ use crate::Token;
 
 pub struct Lexer<'i> {
     input: &'i str,
-    position: usize,
-    read_position: usize,
 }
 
 impl<'i> Lexer<'i> {
     pub fn new(input: &'i str) -> Self {
-        Self {
-            input,
-            position: 0,
-            read_position: 1,
-        }
+        Self { input }
     }
 }
 
@@ -20,24 +14,20 @@ impl<'i> Iterator for Lexer<'i> {
     type Item = Token<'i>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.read_position > self.input.len() {
-            return None;
-        }
+        let ch = self.input.chars().next()?;
 
-        let t = match &self.input[self.position..self.read_position] {
-            "=" => Some(Token::Assign),
-            ";" => Some(Token::Semicolon),
-            "(" => Some(Token::LParen),
-            ")" => Some(Token::RParen),
-            "{" => Some(Token::LBrace),
-            "}" => Some(Token::RBrace),
-            "," => Some(Token::Comma),
-            "+" => Some(Token::Plus),
+        let t = match ch {
+            '=' => Some(Token::Assign),
+            ';' => Some(Token::Semicolon),
+            '(' => Some(Token::LParen),
+            ')' => Some(Token::RParen),
+            '{' => Some(Token::LBrace),
+            '}' => Some(Token::RBrace),
+            ',' => Some(Token::Comma),
+            '+' => Some(Token::Plus),
             _ => Some(Token::Illegal),
         };
-
-        self.position = self.read_position;
-        self.read_position += 1;
+        self.input = &self.input[1..];
 
         t
     }
