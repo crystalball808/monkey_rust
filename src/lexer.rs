@@ -17,19 +17,19 @@ impl<'i> Iterator for Lexer<'i> {
         let ch = self.input.chars().next()?;
 
         let t = match ch {
-            '=' => Some(Token::Assign),
-            ';' => Some(Token::Semicolon),
-            '(' => Some(Token::LParen),
-            ')' => Some(Token::RParen),
-            '{' => Some(Token::LBrace),
-            '}' => Some(Token::RBrace),
-            ',' => Some(Token::Comma),
-            '+' => Some(Token::Plus),
-            _ => Some(Token::Illegal),
+            '=' => Token::Assign,
+            ';' => Token::Semicolon,
+            '(' => Token::LParen,
+            ')' => Token::RParen,
+            '{' => Token::LBrace,
+            '}' => Token::RBrace,
+            ',' => Token::Comma,
+            '+' => Token::Plus,
+            _ => Token::Illegal,
         };
         self.input = &self.input[1..];
 
-        t
+        Some(t)
     }
 }
 
