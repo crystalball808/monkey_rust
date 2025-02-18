@@ -8,11 +8,11 @@ pub struct Lexer<'i> {
 
 impl<'i> Lexer<'i> {
     pub fn new(input: &'i str) -> Self {
-        return Self {
+        Self {
             input,
             position: 0,
             read_position: 1,
-        };
+        }
     }
 }
 
