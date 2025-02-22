@@ -1,4 +1,4 @@
-use crate::Token;
+use crate::{Token, token};
 
 pub struct Lexer<'i> {
     input: &'i str,
@@ -36,15 +36,52 @@ impl<'i> Iterator for Lexer<'i> {
 
 #[test]
 fn test_lexer() {
-    let input = "=+(){}";
+    let input = "let five = 5;
+let ten = 10;
 
+let add = fn(x, y) {
+  x + y
+};
+let result = add(five, ten);
+";
+
+    use Token::*;
     let expected_result = vec![
-        Token::Assign,
-        Token::Plus,
-        Token::LParen,
-        Token::RParen,
-        Token::LBrace,
-        Token::RBrace,
+        Let,
+        Identifier("five"),
+        Assign,
+        Int(5),
+        Semicolon,
+        Let,
+        Identifier("ten"),
+        Assign,
+        Int(10),
+        Semicolon,
+        Let,
+        Identifier("add"),
+        Assign,
+        Function,
+        LParen,
+        Identifier("x"),
+        Comma,
+        Identifier("y"),
+        RParen,
+        LBrace,
+        Identifier("x"),
+        Plus,
+        Identifier("y"),
+        RBrace,
+        Semicolon,
+        Let,
+        Identifier("result"),
+        Assign,
+        Identifier("add"),
+        LParen,
+        Identifier("five"),
+        Comma,
+        Identifier("ten"),
+        LParen,
+        Semicolon,
     ];
 
     let lexer = Lexer::new(input);
