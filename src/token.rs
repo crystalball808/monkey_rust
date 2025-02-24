@@ -17,6 +17,9 @@ pub enum Token<'a> {
     LessThan,
     GreaterThan,
 
+    Equals,
+    NotEquals,
+
     // Delimiters
     Comma,
     Semicolon,

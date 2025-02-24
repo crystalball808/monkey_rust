@@ -45,7 +45,8 @@ impl<'i> Iterator for Lexer<'i> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.skip_whitespace();
-        let ch = self.input.chars().next()?;
+        let mut chars = self.input.chars();
+        let ch = chars.next()?;
 
         let t = match ch {
             letter if letter.is_alphabetic() || letter == '_' => {
@@ -64,7 +65,14 @@ impl<'i> Iterator for Lexer<'i> {
                     number.parse().expect("Should be parsed successfully"),
                 ));
             }
-            '=' => Token::Assign,
+            '=' => {
+                if let Some('=') = chars.next() {
+                    self.input = &self.input[2..];
+                    return Some(Token::Equals);
+                }
+
+                Token::Assign
+            }
             ';' => Token::Semicolon,
             '(' => Token::LParen,
             ')' => Token::RParen,
@@ -73,7 +81,14 @@ impl<'i> Iterator for Lexer<'i> {
             ',' => Token::Comma,
             '+' => Token::Plus,
             '-' => Token::Minus,
-            '!' => Token::Bang,
+            '!' => {
+                if let Some('=') = chars.next() {
+                    self.input = &self.input[2..];
+                    return Some(Token::NotEquals);
+                }
+
+                Token::Bang
+            }
             '*' => Token::Asterisk,
             '/' => Token::Slash,
             '<' => Token::LessThan,
@@ -88,7 +103,9 @@ impl<'i> Iterator for Lexer<'i> {
 
 #[test]
 fn operators() {
-    let input = "=+-!*/<>";
+    let input = "=+-!*/<>
+10 == 10;
+9 != 10;";
 
     use Token::*;
     let expected_output = vec![
@@ -100,6 +117,14 @@ fn operators() {
         Slash,
         LessThan,
         GreaterThan,
+        Int(10),
+        Equals,
+        Int(10),
+        Semicolon,
+        Int(9),
+        NotEquals,
+        Int(10),
+        Semicolon,
     ];
 
     let lexer = Lexer::new(input);
