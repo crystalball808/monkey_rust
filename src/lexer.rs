@@ -10,7 +10,7 @@ fn read_word(input: &str) -> &str {
 fn read_int(input: &str) -> &str {
     let first_nondigit_index = input
         .find(|ch: char| !ch.is_numeric())
-        .expect("Should have at least one alphabetic char");
+        .expect("Should have at least one numeric char");
 
     &input[0..first_nondigit_index]
 }
