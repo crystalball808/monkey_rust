@@ -1,5 +1,20 @@
 use crate::Token;
 
+fn read_word(input: &str) -> &str {
+    let first_nonletter_index = input
+        .find(|ch: char| !ch.is_alphabetic() || ch == '_')
+        .expect("Should have at least one alphabetic char");
+
+    &input[0..first_nonletter_index]
+}
+fn read_int(input: &str) -> &str {
+    let first_nondigit_index = input
+        .find(|ch: char| !ch.is_numeric())
+        .expect("Should have at least one alphabetic char");
+
+    &input[0..first_nondigit_index]
+}
+
 pub struct Lexer<'i> {
     input: &'i str,
 }
@@ -11,14 +26,6 @@ impl<'i> Lexer<'i> {
     fn skip_whitespace(&mut self) {
         self.input = self.input.trim_start()
     }
-}
-
-fn read_word(input: &str) -> &str {
-    let first_nonletter_index = input
-        .find(|ch: char| !ch.is_alphabetic() || ch == '_')
-        .expect("Should have at least one alphabetic char");
-
-    &input[0..first_nonletter_index]
 }
 
 impl<'i> Iterator for Lexer<'i> {
@@ -42,6 +49,15 @@ impl<'i> Iterator for Lexer<'i> {
                 }
 
                 return Some(Token::Identifier(word));
+            }
+            digit if digit.is_numeric() => {
+                let number = read_int(&self.input);
+
+                self.input = &self.input[number.len()..];
+
+                return Some(Token::Int(
+                    number.parse().expect("Should be parsed successfully"),
+                ));
             }
             '=' => Token::Assign,
             ';' => Token::Semicolon,
@@ -105,7 +121,7 @@ let result = add(five, ten);
         Identifier("five"),
         Comma,
         Identifier("ten"),
-        LParen,
+        RParen,
         Semicolon,
     ];
 
