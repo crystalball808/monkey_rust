@@ -1,4 +1,4 @@
-use crate::{Token, token};
+use crate::Token;
 
 pub struct Lexer<'i> {
     input: &'i str,
@@ -10,15 +10,31 @@ impl<'i> Lexer<'i> {
     }
 }
 
+fn read_word<'a>(input: &'a str) -> &'a str {
+    let first_nonletter_index = input
+        .find(|ch: char| !ch.is_alphabetic())
+        .expect("Should have at least one alpabetic char");
+
+    &input[0..first_nonletter_index]
+}
+
 impl<'i> Iterator for Lexer<'i> {
     type Item = Token<'i>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut chars = self.input.chars();
-        let ch = chars.next()?;
-        self.input = chars.as_str();
+        let ch = self.input.chars().next()?;
 
         let t = match ch {
+            letter if letter.is_alphabetic() => {
+                let word = read_word(&self.input);
+
+                self.input = &self.input[word.len()..];
+
+                if word == "let" {
+                    return Some(Token::Let);
+                }
+                return Some(Token::Identifier(word));
+            }
             '=' => Token::Assign,
             ';' => Token::Semicolon,
             '(' => Token::LParen,
@@ -29,6 +45,7 @@ impl<'i> Iterator for Lexer<'i> {
             '+' => Token::Plus,
             _ => Token::Illegal,
         };
+        self.input = &self.input[1..];
 
         Some(t)
     }
