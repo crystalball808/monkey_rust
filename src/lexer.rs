@@ -13,7 +13,7 @@ impl<'i> Lexer<'i> {
 fn read_word(input: &str) -> &str {
     let first_nonletter_index = input
         .find(|ch: char| !ch.is_alphabetic())
-        .expect("Should have at least one alpabetic char");
+        .expect("Should have at least one alphabetic char");
 
     &input[0..first_nonletter_index]
 }
