@@ -8,11 +8,14 @@ impl<'i> Lexer<'i> {
     pub fn new(input: &'i str) -> Self {
         Self { input }
     }
+    fn skip_whitespace(&mut self) {
+        self.input = self.input.trim_start()
+    }
 }
 
 fn read_word(input: &str) -> &str {
     let first_nonletter_index = input
-        .find(|ch: char| !ch.is_alphabetic())
+        .find(|ch: char| !ch.is_alphabetic() || ch == '_')
         .expect("Should have at least one alphabetic char");
 
     &input[0..first_nonletter_index]
@@ -22,10 +25,11 @@ impl<'i> Iterator for Lexer<'i> {
     type Item = Token<'i>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        self.skip_whitespace();
         let ch = self.input.chars().next()?;
 
         let t = match ch {
-            letter if letter.is_alphabetic() => {
+            letter if letter.is_alphabetic() || letter == '_' => {
                 let word = read_word(&self.input);
 
                 self.input = &self.input[word.len()..];
@@ -33,6 +37,10 @@ impl<'i> Iterator for Lexer<'i> {
                 if word == "let" {
                     return Some(Token::Let);
                 }
+                if word == "fn" {
+                    return Some(Token::Function);
+                }
+
                 return Some(Token::Identifier(word));
             }
             '=' => Token::Assign,
