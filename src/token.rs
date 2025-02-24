@@ -9,6 +9,13 @@ pub enum Token<'a> {
     // Operators
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+
+    LessThan,
+    GreaterThan,
 
     // Delimiters
     Comma,
@@ -22,4 +29,7 @@ pub enum Token<'a> {
     // Keywords
     Function,
     Let,
+    Return,
+    False,
+    True,
 }

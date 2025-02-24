@@ -14,6 +14,16 @@ fn read_int(input: &str) -> &str {
 
     &input[0..first_nondigit_index]
 }
+fn lookup_keyword(word: &str) -> Token {
+    match word {
+        "let" => Token::Let,
+        "fn" => Token::Function,
+        "true" => Token::True,
+        "false" => Token::False,
+        "return" => Token::Return,
+        identifier => Token::Identifier(identifier),
+    }
+}
 
 pub struct Lexer<'i> {
     input: &'i str,
@@ -41,14 +51,7 @@ impl<'i> Iterator for Lexer<'i> {
 
                 self.input = &self.input[word.len()..];
 
-                if word == "let" {
-                    return Some(Token::Let);
-                }
-                if word == "fn" {
-                    return Some(Token::Function);
-                }
-
-                return Some(Token::Identifier(word));
+                return Some(lookup_keyword(word));
             }
             digit if digit.is_numeric() => {
                 let number = read_int(&self.input);
@@ -67,6 +70,12 @@ impl<'i> Iterator for Lexer<'i> {
             '}' => Token::RBrace,
             ',' => Token::Comma,
             '+' => Token::Plus,
+            '-' => Token::Minus,
+            '!' => Token::Bang,
+            '*' => Token::Asterisk,
+            '/' => Token::Slash,
+            '<' => Token::LessThan,
+            '>' => Token::GreaterThan,
             _ => Token::Illegal,
         };
         self.input = &self.input[1..];
@@ -76,7 +85,30 @@ impl<'i> Iterator for Lexer<'i> {
 }
 
 #[test]
-fn test_lexer() {
+fn operators() {
+    let input = "=+-!*/<>";
+
+    use Token::*;
+    let expected_output = vec![
+        Assign,
+        Plus,
+        Minus,
+        Bang,
+        Asterisk,
+        Slash,
+        LessThan,
+        GreaterThan,
+    ];
+
+    let lexer = Lexer::new(input);
+
+    let output: Vec<Token> = lexer.collect();
+
+    assert_eq!(output, expected_output);
+}
+
+#[test]
+fn basic_set() {
     let input = "let five = 5;
 let ten = 10;
 
