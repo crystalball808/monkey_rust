@@ -2,15 +2,13 @@ use crate::Token;
 
 fn read_word(input: &str) -> &str {
     let first_nonletter_index = input
-        .find(|ch: char| !ch.is_alphabetic() || ch == '_')
-        .expect("Should have at least one alphabetic char");
+        .find(|ch: char| !ch.is_alphabetic() && ch != '_')
+        .unwrap_or(1);
 
     &input[0..first_nonletter_index]
 }
 fn read_int(input: &str) -> &str {
-    let first_nondigit_index = input
-        .find(|ch: char| !ch.is_numeric())
-        .expect("Should have at least one numeric char");
+    let first_nondigit_index = input.find(|ch: char| !ch.is_numeric()).unwrap_or(1);
 
     &input[0..first_nondigit_index]
 }
