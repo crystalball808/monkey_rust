@@ -29,6 +29,8 @@ pub enum Token<'a> {
     // Keywords
     Function,
     Let,
+    If,
+    Else,
     Return,
     False,
     True,

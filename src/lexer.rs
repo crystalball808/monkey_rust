@@ -21,6 +21,8 @@ fn lookup_keyword(word: &str) -> Token {
         "true" => Token::True,
         "false" => Token::False,
         "return" => Token::Return,
+        "if" => Token::If,
+        "else" => Token::Else,
         identifier => Token::Identifier(identifier),
     }
 }
@@ -100,6 +102,42 @@ fn operators() {
         GreaterThan,
     ];
 
+    let lexer = Lexer::new(input);
+
+    let output: Vec<Token> = lexer.collect();
+
+    assert_eq!(output, expected_output);
+}
+
+#[test]
+fn keywords() {
+    let input = "if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
+";
+
+    use Token::*;
+    let expected_output = vec![
+        If,
+        LParen,
+        Int(5),
+        LessThan,
+        Int(10),
+        RParen,
+        LBrace,
+        Return,
+        True,
+        Semicolon,
+        RBrace,
+        Else,
+        LBrace,
+        Return,
+        False,
+        Semicolon,
+        RBrace,
+    ];
     let lexer = Lexer::new(input);
 
     let output: Vec<Token> = lexer.collect();
