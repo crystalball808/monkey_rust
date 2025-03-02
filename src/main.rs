@@ -51,7 +51,8 @@ fn run_repl() -> io::Result<()> {
 
         println!("{:?}", tokens);
         input.clear();
-        print!(">> ")
+        print!(">> ");
+        io::stdout().flush()?;
     }
 
     Ok(())
