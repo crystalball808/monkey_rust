@@ -3,8 +3,8 @@ use crate::{
     ast::{Expression, Program, Statement},
 };
 
-struct Parser<'a> {
-    lexer: Lexer<'a>,
+struct Parser<'l> {
+    lexer: Lexer<'l>,
 }
 
 impl<'l> Parser<'l> {
