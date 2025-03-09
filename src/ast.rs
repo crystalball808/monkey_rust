@@ -1,7 +1,10 @@
 #[derive(Debug, PartialEq)]
+/// Prefix operator (e.g. `-5`, `!foo`)
 pub enum PrefixOperator {
-    Not,      // !5
-    Negative, // -15
+    /// e.g. `!5`, `!foo(1, "bar")`
+    Not,
+    /// e.g. `-15`
+    Negative,
 }
 
 #[derive(Debug, PartialEq)]
