@@ -115,8 +115,8 @@ let foobar = 838383;";
 fn return_statement() {
     let input = "
 return 5;
-return 10;
 return 993322;
+return foobar;
 ";
     let lexer = Lexer::new(input);
     let parser = Parser::new(lexer);
@@ -126,8 +126,8 @@ return 993322;
 
     let expected_ast = Program::new(vec![
         Statement::Return(Expression::IntLiteral(5)),
-        Statement::Return(Expression::IntLiteral(10)),
         Statement::Return(Expression::IntLiteral(993322)),
+        Statement::Return(Expression::Identifier("foobar")),
     ]);
 
     assert_eq!(parsed_ast, expected_ast);

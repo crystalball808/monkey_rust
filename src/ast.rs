@@ -1,7 +1,14 @@
 #[derive(Debug, PartialEq)]
+pub enum PrefixOperator {
+    Not,      // !5
+    Negative, // -15
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression<'i> {
     IntLiteral(u32),
     Identifier(&'i str),
+    Prefix(PrefixOperator, Box<Expression<'i>>),
 }
 
 #[derive(Debug, PartialEq)]
