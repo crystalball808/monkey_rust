@@ -8,17 +8,33 @@ struct Parser<'l> {
 }
 
 impl<'l> Parser<'l> {
+    #[allow(dead_code)]
     fn new(lexer: Lexer<'l>) -> Self {
         Self { lexer }
     }
-    fn parse_program(self) -> Result<Program<'l>, String> {
-        let mut lexer = self.lexer.peekable();
+    // fn prefix_parse() -> Expression<'l> {
+    //     todo!()
+    // }
+    // fn infix_parse() -> Expression<'l> {
+    //     todo!()
+    // }
+    fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
+        let expr = match self.lexer.next().ok_or(String::from("No token to parse"))? {
+            Token::Int(integer) => Ok(Expression::IntLiteral(integer)),
+            Token::Identifier(identifier) => Ok(Expression::Identifier(identifier)),
+            other_token => Err(String::from(format!("Unexpected token: {:?}", other_token))),
+        };
 
+        expr
+    }
+    #[allow(dead_code)]
+    fn parse_program(mut self) -> Result<Program<'l>, String> {
         let mut statements: Vec<Statement> = Vec::new();
-        while let Some(token) = lexer.next() {
+        while let Some(token) = self.lexer.next() {
             match token {
                 Token::Let => {
-                    let name = match lexer
+                    let name = match self
+                        .lexer
                         .next()
                         .ok_or(String::from("Let statement not finished"))?
                     {
@@ -26,40 +42,45 @@ impl<'l> Parser<'l> {
                         _ => return Err(String::from("Illegal synthax")),
                     };
 
-                    let Some(Token::Assign) = lexer.next() else {
+                    let Some(Token::Assign) = self.lexer.next() else {
                         return Err(String::from("Let statement without the assign token"));
                     };
 
-                    let expr = match lexer
-                        .next()
-                        .ok_or(String::from("Let statement not finished"))?
-                    {
-                        Token::Int(integer) => Expression::IntLiteral(integer),
-                        _ => return Err(String::from("Illegal synthax")),
-                    };
+                    let expr = self.parse_expression()?;
 
                     statements.push(Statement::Let(name, expr));
 
-                    let Some(Token::Semicolon) = lexer.next() else {
+                    let Some(Token::Semicolon) = self.lexer.next() else {
                         return Err(String::from("Let statement without the semicolon"));
                     };
                 }
                 Token::Return => {
-                    let expr = match lexer
-                        .next()
-                        .ok_or(String::from("Return statement not finished"))?
-                    {
-                        Token::Int(integer) => Expression::IntLiteral(integer),
-                        _ => return Err(String::from("Return statement not finished")),
-                    };
+                    let expr = self.parse_expression()?;
 
                     statements.push(Statement::Return(expr));
 
-                    let Some(Token::Semicolon) = lexer.next() else {
-                        return Err(String::from("Let statement without the semicolon"));
+                    let Some(Token::Semicolon) = self.lexer.next() else {
+                        return Err(String::from("Statement without the semicolon"));
                     };
                 }
-                _ => {}
+                other_token => {
+                    let expr = match other_token {
+                        Token::Int(integer) => Expression::IntLiteral(integer),
+                        Token::Identifier(identifier) => Expression::Identifier(identifier),
+                        other_token => {
+                            return Err(String::from(format!(
+                                "Unexpected token: {:?}",
+                                other_token
+                            )));
+                        }
+                    };
+
+                    statements.push(Statement::Expression(expr));
+
+                    let Some(Token::Semicolon) = self.lexer.next() else {
+                        return Err(String::from("Statement without the semicolon"));
+                    };
+                }
             }
         }
 
@@ -108,6 +129,23 @@ return 993322;
         Statement::Return(Expression::IntLiteral(10)),
         Statement::Return(Expression::IntLiteral(993322)),
     ]);
+
+    assert_eq!(parsed_ast, expected_ast);
+}
+
+#[test]
+fn expression_statement() {
+    let input = "foobar;";
+
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![Statement::Expression(Expression::Identifier(
+        "foobar",
+    ))]);
 
     assert_eq!(parsed_ast, expected_ast);
 }
