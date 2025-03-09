@@ -1,11 +1,12 @@
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Int(u32),
+    IntLiteral(u32),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Statement<'i> {
-    LetStatement(&'i str, Expression),
+    Let(&'i str, Expression),
+    Return(Expression),
 }
 
 #[derive(Debug, PartialEq)]
