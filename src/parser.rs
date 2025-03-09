@@ -135,7 +135,9 @@ return 993322;
 
 #[test]
 fn expression_statement() {
-    let input = "foobar;";
+    let input = "
+foobar;
+5;";
 
     let lexer = Lexer::new(input);
     let parser = Parser::new(lexer);
@@ -143,9 +145,10 @@ fn expression_statement() {
         .parse_program()
         .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![Statement::Expression(Expression::Identifier(
-        "foobar",
-    ))]);
+    let expected_ast = Program::new(vec![
+        Statement::Expression(Expression::Identifier("foobar")),
+        Statement::Expression(Expression::IntLiteral(5)),
+    ]);
 
     assert_eq!(parsed_ast, expected_ast);
 }
