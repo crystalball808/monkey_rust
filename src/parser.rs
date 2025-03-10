@@ -123,8 +123,6 @@ impl<'l> Parser<'l> {
 
 #[test]
 fn let_statement() {
-    use crate::ast::{Expression, Statement};
-
     let input = "
 let x = 5;
 let y = 10;
