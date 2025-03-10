@@ -1,6 +1,6 @@
 use crate::{
     Lexer, Token,
-    ast::{Expression, Program, Statement},
+    ast::{Expression, PrefixOperator, Program, Statement},
 };
 
 struct Parser<'l> {
@@ -22,6 +22,20 @@ impl<'l> Parser<'l> {
         let expr = match self.lexer.next().ok_or(String::from("No token to parse"))? {
             Token::Int(integer) => Ok(Expression::IntLiteral(integer)),
             Token::Identifier(identifier) => Ok(Expression::Identifier(identifier)),
+            Token::Minus => {
+                let expr = Expression::Prefix(
+                    PrefixOperator::Negative,
+                    Box::new(self.parse_expression()?),
+                );
+
+                Ok(expr)
+            }
+            Token::Bang => {
+                let expr =
+                    Expression::Prefix(PrefixOperator::Not, Box::new(self.parse_expression()?));
+
+                Ok(expr)
+            }
             other_token => Err(String::from(format!("Unexpected token: {:?}", other_token))),
         };
 
@@ -67,6 +81,14 @@ impl<'l> Parser<'l> {
                     let expr = match other_token {
                         Token::Int(integer) => Expression::IntLiteral(integer),
                         Token::Identifier(identifier) => Expression::Identifier(identifier),
+                        Token::Minus => Expression::Prefix(
+                            PrefixOperator::Negative,
+                            Box::new(self.parse_expression()?),
+                        ),
+                        Token::Bang => Expression::Prefix(
+                            PrefixOperator::Not,
+                            Box::new(self.parse_expression()?),
+                        ),
                         other_token => {
                             return Err(String::from(format!(
                                 "Unexpected token: {:?}",
@@ -148,6 +170,41 @@ foobar;
     let expected_ast = Program::new(vec![
         Statement::Expression(Expression::Identifier("foobar")),
         Statement::Expression(Expression::IntLiteral(5)),
+    ]);
+
+    assert_eq!(parsed_ast, expected_ast);
+}
+
+#[test]
+fn prefix_expression() {
+    let input = "-5;
+-foobar;
+!10;
+!x;";
+
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![
+        Statement::Expression(Expression::Prefix(
+            PrefixOperator::Negative,
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Prefix(
+            PrefixOperator::Negative,
+            Box::new(Expression::Identifier("foobar")),
+        )),
+        Statement::Expression(Expression::Prefix(
+            PrefixOperator::Not,
+            Box::new(Expression::IntLiteral(10)),
+        )),
+        Statement::Expression(Expression::Prefix(
+            PrefixOperator::Not,
+            Box::new(Expression::Identifier("x")),
+        )),
     ]);
 
     assert_eq!(parsed_ast, expected_ast);

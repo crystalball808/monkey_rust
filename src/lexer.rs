@@ -25,6 +25,7 @@ fn lookup_keyword(word: &str) -> Token {
     }
 }
 
+#[derive(Debug)]
 pub struct Lexer<'i> {
     input: &'i str,
 }
