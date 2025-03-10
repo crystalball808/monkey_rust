@@ -1,3 +1,5 @@
+use crate::Token;
+
 #[derive(Debug, PartialEq)]
 /// Prefix operator (e.g. `-5`, `!foo`)
 pub enum PrefixOperator {
@@ -31,6 +33,24 @@ impl InfixOperator {
             InfixOperator::Subtract => 2,
             InfixOperator::Multiply => 3,
             InfixOperator::Divide => 3,
+        }
+    }
+}
+
+impl TryFrom<&Token<'_>> for InfixOperator {
+    type Error = ();
+
+    fn try_from(token: &Token<'_>) -> Result<Self, Self::Error> {
+        match token {
+            Token::LessThan => Ok(InfixOperator::LessThan),
+            Token::GreaterThan => Ok(InfixOperator::GreaterThan),
+            Token::Equals => Ok(InfixOperator::Equals),
+            Token::NotEquals => Ok(InfixOperator::NotEquals),
+            Token::Plus => Ok(InfixOperator::Add),
+            Token::Minus => Ok(InfixOperator::Subtract),
+            Token::Asterisk => Ok(InfixOperator::Multiply),
+            Token::Slash => Ok(InfixOperator::Divide),
+            _ => Err(()),
         }
     }
 }

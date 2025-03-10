@@ -1,29 +1,51 @@
+use std::iter::Peekable;
+
 use crate::{
     Lexer, Token,
     ast::{Expression, InfixOperator, PrefixOperator, Program, Statement},
 };
 
 struct Parser<'l> {
-    lexer: Lexer<'l>,
+    lexer: Peekable<Lexer<'l>>,
 }
 
 impl<'l> Parser<'l> {
     #[allow(dead_code)]
     fn new(lexer: Lexer<'l>) -> Self {
-        Self { lexer }
+        Self {
+            lexer: lexer.peekable(),
+        }
     }
     // fn prefix_parse() -> Expression<'l> {
     //     todo!()
     // }
-    // fn infix_parse() -> Expression<'l> {
+    // fn infix_parse(
+    //     &mut self,
+    //     left_expr: Expression<'l>,
+    //     operator: InfixOperator,
+    // ) -> Expression<'l> {
     //     todo!()
     // }
     fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
         let expr = match self.lexer.next().ok_or(String::from("No token to parse"))? {
             Token::Int(integer) => {
                 let left_expr = Expression::IntLiteral(integer);
+                let Some(peeked_token) = self.lexer.peek() else {
+                    return Ok(left_expr);
+                };
 
-                Ok(left_expr)
+                if let Ok(infix_operator) = InfixOperator::try_from(peeked_token) {
+                    self.lexer.next();
+                    let rigth_expr = self.parse_expression()?;
+
+                    Ok(Expression::Infix(
+                        infix_operator,
+                        Box::new(left_expr),
+                        Box::new(rigth_expr),
+                    ))
+                } else {
+                    Ok(left_expr)
+                }
             }
             Token::Identifier(identifier) => Ok(Expression::Identifier(identifier)),
             Token::Minus => {
@@ -48,9 +70,10 @@ impl<'l> Parser<'l> {
     #[allow(dead_code)]
     fn parse_program(mut self) -> Result<Program<'l>, String> {
         let mut statements: Vec<Statement> = Vec::new();
-        while let Some(token) = self.lexer.next() {
+        while let Some(token) = self.lexer.peek() {
             match token {
                 Token::Let => {
+                    self.lexer.next();
                     let name = match self
                         .lexer
                         .next()
@@ -73,6 +96,7 @@ impl<'l> Parser<'l> {
                     };
                 }
                 Token::Return => {
+                    self.lexer.next();
                     let expr = self.parse_expression()?;
 
                     statements.push(Statement::Return(expr));
@@ -81,25 +105,8 @@ impl<'l> Parser<'l> {
                         return Err(String::from("Statement without the semicolon"));
                     };
                 }
-                other_token => {
-                    let expr = match other_token {
-                        Token::Int(integer) => Expression::IntLiteral(integer),
-                        Token::Identifier(identifier) => Expression::Identifier(identifier),
-                        Token::Minus => Expression::Prefix(
-                            PrefixOperator::Negative,
-                            Box::new(self.parse_expression()?),
-                        ),
-                        Token::Bang => Expression::Prefix(
-                            PrefixOperator::Not,
-                            Box::new(self.parse_expression()?),
-                        ),
-                        other_token => {
-                            return Err(String::from(format!(
-                                "Unexpected token: {:?}",
-                                other_token
-                            )));
-                        }
-                    };
+                _ => {
+                    let expr = self.parse_expression()?;
 
                     statements.push(Statement::Expression(expr));
 
