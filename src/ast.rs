@@ -8,10 +8,39 @@ pub enum PrefixOperator {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum InfixOperator {
+    Equals,
+    NotEquals,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    GreaterThan,
+    LessThan,
+}
+
+// TODO: Implement Ord for InfixOperator
+impl InfixOperator {
+    pub fn get_precedence(&self) -> u8 {
+        match self {
+            InfixOperator::Equals => 0,
+            InfixOperator::NotEquals => 0,
+            InfixOperator::GreaterThan => 1,
+            InfixOperator::LessThan => 1,
+            InfixOperator::Add => 2,
+            InfixOperator::Subtract => 2,
+            InfixOperator::Multiply => 3,
+            InfixOperator::Divide => 3,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Expression<'i> {
     IntLiteral(u32),
     Identifier(&'i str),
     Prefix(PrefixOperator, Box<Expression<'i>>),
+    Infix(InfixOperator, Box<Expression<'i>>, Box<Expression<'i>>),
 }
 
 #[derive(Debug, PartialEq)]

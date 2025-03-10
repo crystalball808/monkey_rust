@@ -1,6 +1,6 @@
 use crate::{
     Lexer, Token,
-    ast::{Expression, PrefixOperator, Program, Statement},
+    ast::{Expression, InfixOperator, PrefixOperator, Program, Statement},
 };
 
 struct Parser<'l> {
@@ -20,7 +20,11 @@ impl<'l> Parser<'l> {
     // }
     fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
         let expr = match self.lexer.next().ok_or(String::from("No token to parse"))? {
-            Token::Int(integer) => Ok(Expression::IntLiteral(integer)),
+            Token::Int(integer) => {
+                let left_expr = Expression::IntLiteral(integer);
+
+                Ok(left_expr)
+            }
             Token::Identifier(identifier) => Ok(Expression::Identifier(identifier)),
             Token::Minus => {
                 let expr = Expression::Prefix(
@@ -207,5 +211,68 @@ fn prefix_expression() {
         )),
     ]);
 
+    assert_eq!(parsed_ast, expected_ast);
+}
+
+#[test]
+fn infix_expression() {
+    let input = "
+5 + 5;
+5 - 5;
+5 * 5;
+5 / 5;
+5 > 5;
+5 < 5;
+5 == 5;
+5 != 5;
+";
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Add,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Subtract,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Multiply,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Divide,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::GreaterThan,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::LessThan,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Equals,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::NotEquals,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(5)),
+        )),
+    ]);
     assert_eq!(parsed_ast, expected_ast);
 }
