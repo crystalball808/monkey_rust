@@ -220,6 +220,56 @@ fn prefix_expression() {
 }
 
 #[test]
+fn infix_precedence() {
+    let input = "
+5 + 10 / 2;
+10 / 2 + 5;
+10 - 2 < 7 + 3;
+";
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Add,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::Infix(
+                InfixOperator::Divide,
+                Box::new(Expression::IntLiteral(10)),
+                Box::new(Expression::IntLiteral(2)),
+            )),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::Add,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::Infix(
+                InfixOperator::Divide,
+                Box::new(Expression::IntLiteral(10)),
+                Box::new(Expression::IntLiteral(2)),
+            )),
+        )),
+        Statement::Expression(Expression::Infix(
+            InfixOperator::LessThan,
+            Box::new(Expression::Infix(
+                InfixOperator::Subtract,
+                Box::new(Expression::IntLiteral(10)),
+                Box::new(Expression::IntLiteral(2)),
+            )),
+            Box::new(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::IntLiteral(7)),
+                Box::new(Expression::IntLiteral(3)),
+            )),
+        )),
+    ]);
+
+    assert_eq!(parsed_ast, expected_ast);
+}
+
+#[test]
 fn infix_expression() {
     let input = "
 5 + 5;
