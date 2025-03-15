@@ -240,6 +240,7 @@ fn infix_precedence() {
 5 + 10 / 2;
 10 / 2 + 5;
 10 - 2 < 7 + 3;
+5 + 4 > 6;
 ";
     let lexer = Lexer::new(input);
     let parser = Parser::new(lexer);
@@ -259,12 +260,12 @@ fn infix_precedence() {
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::Add,
-            Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::Infix(
                 InfixOperator::Divide,
                 Box::new(Expression::IntLiteral(10)),
                 Box::new(Expression::IntLiteral(2)),
             )),
+            Box::new(Expression::IntLiteral(5)),
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::LessThan,
@@ -278,6 +279,16 @@ fn infix_precedence() {
                 Box::new(Expression::IntLiteral(7)),
                 Box::new(Expression::IntLiteral(3)),
             )),
+        )),
+        // 5 + 4 > 6;
+        Statement::Expression(Expression::Infix(
+            InfixOperator::GreaterThan,
+            Box::new(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(4)),
+            )),
+            Box::new(Expression::IntLiteral(6)),
         )),
     ]);
 
