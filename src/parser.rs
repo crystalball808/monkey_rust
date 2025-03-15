@@ -19,53 +19,68 @@ impl<'l> Parser<'l> {
     // fn prefix_parse() -> Expression<'l> {
     //     todo!()
     // }
-    // fn infix_parse(
-    //     &mut self,
-    //     left_expr: Expression<'l>,
-    //     operator: InfixOperator,
-    // ) -> Expression<'l> {
-    //     todo!()
-    // }
-    fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
-        let expr = match self.lexer.next().ok_or(String::from("No token to parse"))? {
-            Token::Int(integer) => {
-                let left_expr = Expression::IntLiteral(integer);
-                let Some(peeked_token) = self.lexer.peek() else {
-                    return Ok(left_expr);
+    fn infix_parse(&mut self, left_expr: Expression<'l>) -> Result<Expression<'l>, String> {
+        let infix_operator = InfixOperator::try_from(&self.lexer.next().expect("Should be"))
+            .expect("Should be valid infix operator");
+
+        if let Expression::Infix(left_infix_operator, _, _) = &left_expr {
+            if left_infix_operator.get_precedence() > infix_operator.get_precedence() {
+                let right_expr = self.parse_single_expression()?;
+                return Ok(Expression::Infix(
+                    infix_operator,
+                    Box::new(left_expr),
+                    Box::new(right_expr),
+                ));
+            } else {
+                let Expression::Infix(left_infix_operator, ll, lr) = left_expr else {
+                    panic!("We checked this previously")
                 };
-
-                if let Ok(infix_operator) = InfixOperator::try_from(peeked_token) {
-                    self.lexer.next();
-                    let rigth_expr = self.parse_expression()?;
-
-                    Ok(Expression::Infix(
+                return Ok(Expression::Infix(
+                    left_infix_operator,
+                    ll,
+                    Box::new(Expression::Infix(
                         infix_operator,
-                        Box::new(left_expr),
-                        Box::new(rigth_expr),
-                    ))
-                } else {
-                    Ok(left_expr)
-                }
+                        lr,
+                        Box::new(self.parse_single_expression()?),
+                    )),
+                ));
             }
-            Token::Identifier(identifier) => Ok(Expression::Identifier(identifier)),
-            Token::Minus => {
-                let expr = Expression::Prefix(
-                    PrefixOperator::Negative,
-                    Box::new(self.parse_expression()?),
-                );
+        }
 
-                Ok(expr)
+        Ok(Expression::Infix(
+            infix_operator,
+            Box::new(left_expr),
+            Box::new(self.parse_single_expression()?),
+        ))
+    }
+    fn parse_single_expression(&mut self) -> Result<Expression<'l>, String> {
+        let expr: Expression = match self.lexer.next().ok_or(String::from("No token to parse"))? {
+            Token::Int(integer) => Expression::IntLiteral(integer),
+            Token::Identifier(identifier) => Expression::Identifier(identifier),
+            Token::Minus => {
+                Expression::Prefix(PrefixOperator::Negative, Box::new(self.parse_expression()?))
             }
             Token::Bang => {
-                let expr =
-                    Expression::Prefix(PrefixOperator::Not, Box::new(self.parse_expression()?));
-
-                Ok(expr)
+                Expression::Prefix(PrefixOperator::Not, Box::new(self.parse_expression()?))
             }
-            other_token => Err(String::from(format!("Unexpected token: {:?}", other_token))),
+            other_token => {
+                return Err(String::from(format!("Unexpected token: {:?}", other_token)));
+            }
         };
 
-        expr
+        Ok(expr)
+    }
+    fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
+        let mut expr = self.parse_single_expression()?;
+        while let Some(peekeed_token) = self.lexer.peek() {
+            if InfixOperator::try_from(peekeed_token).is_ok() {
+                expr = self.infix_parse(expr)?;
+            } else {
+                return Ok(expr);
+            }
+        }
+
+        Ok(expr)
     }
     #[allow(dead_code)]
     fn parse_program(mut self) -> Result<Program<'l>, String> {
