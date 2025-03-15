@@ -16,9 +16,6 @@ impl<'l> Parser<'l> {
             lexer: lexer.peekable(),
         }
     }
-    // fn prefix_parse() -> Expression<'l> {
-    //     todo!()
-    // }
     fn infix_parse(&mut self, left_expr: Expression<'l>) -> Result<Expression<'l>, String> {
         let infix_operator = InfixOperator::try_from(&self.lexer.next().expect("Should be"))
             .expect("Should be valid infix operator");
