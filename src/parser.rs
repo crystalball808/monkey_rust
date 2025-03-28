@@ -53,6 +53,8 @@ impl<'l> Parser<'l> {
     fn parse_single_expression(&mut self) -> Result<Expression<'l>, String> {
         let expr: Expression = match self.lexer.next().ok_or(String::from("No token to parse"))? {
             Token::Int(integer) => Expression::IntLiteral(integer),
+            Token::False => Expression::Boolean(false),
+            Token::True => Expression::Boolean(true),
             Token::Identifier(identifier) => Expression::Identifier(identifier),
             Token::Minus => {
                 Expression::Prefix(PrefixOperator::Negative, Box::new(self.parse_expression()?))
@@ -287,6 +289,30 @@ fn infix_precedence() {
             )),
             Box::new(Expression::IntLiteral(6)),
         )),
+    ]);
+
+    assert_eq!(parsed_ast, expected_ast);
+}
+
+#[test]
+fn boolean() {
+    let input = "
+true;
+false;
+let foobar = true;
+let barfoo = false;";
+
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![
+        Statement::Expression(Expression::Boolean(true)),
+        Statement::Expression(Expression::Boolean(false)),
+        Statement::Let("foobar", Expression::Boolean(true)),
+        Statement::Let("barfoo", Expression::Boolean(false)),
     ]);
 
     assert_eq!(parsed_ast, expected_ast);
