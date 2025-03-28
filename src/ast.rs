@@ -61,7 +61,12 @@ pub enum Expression<'i> {
     Boolean(bool),
     Identifier(&'i str),
     Prefix(PrefixOperator, Box<Expression<'i>>),
-    Infix(InfixOperator, Box<Expression<'i>>, Box<Expression<'i>>),
+    Infix(
+        InfixOperator,
+        Box<Expression<'i>>,
+        Box<Expression<'i>>,
+        bool,
+    ),
 }
 
 #[derive(Debug, PartialEq)]

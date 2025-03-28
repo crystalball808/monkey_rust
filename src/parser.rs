@@ -16,20 +16,25 @@ impl<'l> Parser<'l> {
             lexer: lexer.peekable(),
         }
     }
-    fn infix_parse(&mut self, left_expr: Expression<'l>) -> Result<Expression<'l>, String> {
+    fn infix_parse(
+        &mut self,
+        left_expr: Expression<'l>,
+        boosted: bool,
+    ) -> Result<Expression<'l>, String> {
         let infix_operator = InfixOperator::try_from(&self.lexer.next().expect("Should be"))
             .expect("Should be valid infix operator");
 
-        if let Expression::Infix(left_infix_operator, _, _) = &left_expr {
+        if let Expression::Infix(left_infix_operator, _, _, false) = &left_expr {
             if left_infix_operator.get_precedence() > infix_operator.get_precedence() {
                 let right_expr = self.parse_single_expression()?;
                 return Ok(Expression::Infix(
                     infix_operator,
                     Box::new(left_expr),
                     Box::new(right_expr),
+                    boosted,
                 ));
             } else {
-                let Expression::Infix(left_infix_operator, ll, lr) = left_expr else {
+                let Expression::Infix(left_infix_operator, ll, lr, false) = left_expr else {
                     panic!("We checked this previously")
                 };
                 return Ok(Expression::Infix(
@@ -39,7 +44,9 @@ impl<'l> Parser<'l> {
                         infix_operator,
                         lr,
                         Box::new(self.parse_single_expression()?),
+                        false,
                     )),
+                    boosted,
                 ));
             }
         }
@@ -48,6 +55,7 @@ impl<'l> Parser<'l> {
             infix_operator,
             Box::new(left_expr),
             Box::new(self.parse_single_expression()?),
+            boosted,
         ))
     }
     fn parse_single_expression(&mut self) -> Result<Expression<'l>, String> {
@@ -62,6 +70,8 @@ impl<'l> Parser<'l> {
             Token::Bang => {
                 Expression::Prefix(PrefixOperator::Not, Box::new(self.parse_expression()?))
             }
+            Token::LParen => self.parse_grouped_expression()?,
+
             other_token => {
                 return Err(String::from(format!("Unexpected token: {:?}", other_token)));
             }
@@ -69,11 +79,29 @@ impl<'l> Parser<'l> {
 
         Ok(expr)
     }
+    fn parse_grouped_expression(&mut self) -> Result<Expression<'l>, String> {
+        let mut expr = self.parse_single_expression()?;
+        while let Some(peekeed_token) = self.lexer.peek() {
+            if InfixOperator::try_from(peekeed_token).is_ok() {
+                expr = self.infix_parse(expr, true)?;
+            } else {
+                if self.lexer.next().unwrap() != Token::RParen {
+                    return Err(String::from("Grouped expression not finished"));
+                }
+                return Ok(expr);
+            }
+        }
+
+        if self.lexer.next().unwrap() != Token::RParen {
+            return Err(String::from("Grouped expression not finished"));
+        }
+        Ok(expr)
+    }
     fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
         let mut expr = self.parse_single_expression()?;
         while let Some(peekeed_token) = self.lexer.peek() {
             if InfixOperator::try_from(peekeed_token).is_ok() {
-                expr = self.infix_parse(expr)?;
+                expr = self.infix_parse(expr, false)?;
             } else {
                 return Ok(expr);
             }
@@ -256,7 +284,9 @@ fn infix_precedence() {
                 InfixOperator::Divide,
                 Box::new(Expression::IntLiteral(10)),
                 Box::new(Expression::IntLiteral(2)),
+                false,
             )),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::Add,
@@ -264,8 +294,10 @@ fn infix_precedence() {
                 InfixOperator::Divide,
                 Box::new(Expression::IntLiteral(10)),
                 Box::new(Expression::IntLiteral(2)),
+                false,
             )),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::LessThan,
@@ -273,12 +305,15 @@ fn infix_precedence() {
                 InfixOperator::Subtract,
                 Box::new(Expression::IntLiteral(10)),
                 Box::new(Expression::IntLiteral(2)),
+                false,
             )),
             Box::new(Expression::Infix(
                 InfixOperator::Add,
                 Box::new(Expression::IntLiteral(7)),
                 Box::new(Expression::IntLiteral(3)),
+                false,
             )),
+            false,
         )),
         // 5 + 4 > 6;
         Statement::Expression(Expression::Infix(
@@ -287,8 +322,10 @@ fn infix_precedence() {
                 InfixOperator::Add,
                 Box::new(Expression::IntLiteral(5)),
                 Box::new(Expression::IntLiteral(4)),
+                false,
             )),
             Box::new(Expression::IntLiteral(6)),
+            false,
         )),
         // 3 > 5 == false;
         Statement::Expression(Expression::Infix(
@@ -297,10 +334,37 @@ fn infix_precedence() {
                 InfixOperator::GreaterThan,
                 Box::new(Expression::IntLiteral(3)),
                 Box::new(Expression::IntLiteral(5)),
+                false,
             )),
             Box::new(Expression::Boolean(false)),
+            false,
         )),
     ]);
+
+    assert_eq!(parsed_ast, expected_ast);
+}
+
+#[test]
+fn grouped() {
+    let input = "
+(5 + 10) / 2;";
+
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+    let expected_ast = Program::new(vec![Statement::Expression(Expression::Infix(
+        InfixOperator::Divide,
+        Box::new(Expression::Infix(
+            InfixOperator::Add,
+            Box::new(Expression::IntLiteral(5)),
+            Box::new(Expression::IntLiteral(10)),
+            true,
+        )),
+        Box::new(Expression::IntLiteral(2)),
+        false,
+    ))]);
 
     assert_eq!(parsed_ast, expected_ast);
 }
@@ -352,41 +416,49 @@ fn infix_expression() {
             InfixOperator::Add,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::Subtract,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::Multiply,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::Divide,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::GreaterThan,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::LessThan,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::Equals,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
         Statement::Expression(Expression::Infix(
             InfixOperator::NotEquals,
             Box::new(Expression::IntLiteral(5)),
             Box::new(Expression::IntLiteral(5)),
+            false,
         )),
     ]);
     assert_eq!(parsed_ast, expected_ast);
