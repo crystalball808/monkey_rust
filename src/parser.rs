@@ -464,8 +464,6 @@ fn if_expression() {
     let input = "if (x < y) { let a = x - 2; a } else { y }";
 
     let lexer = Lexer::new(input);
-
-    let lexer = Lexer::new(input);
     let parser = Parser::new(lexer);
     let parsed_ast = parser
         .parse_program()
