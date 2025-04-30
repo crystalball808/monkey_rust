@@ -67,6 +67,11 @@ pub enum Expression<'i> {
         Box<Expression<'i>>,
         bool,
     ),
+    If(
+        Box<Expression<'i>>,
+        Box<Vec<Statement<'i>>>,
+        Box<Vec<Statement<'i>>>,
+    ),
 }
 
 #[derive(Debug, PartialEq)]

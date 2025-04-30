@@ -71,6 +71,7 @@ impl<'l> Parser<'l> {
                 Expression::Prefix(PrefixOperator::Not, Box::new(self.parse_expression()?))
             }
             Token::LParen => self.parse_grouped_expression()?,
+            Token::If => self.parse_if_expression()?,
 
             other_token => {
                 return Err(String::from(format!("Unexpected token: {:?}", other_token)));
@@ -109,8 +110,57 @@ impl<'l> Parser<'l> {
 
         Ok(expr)
     }
-    #[allow(dead_code)]
-    fn parse_program(mut self) -> Result<Program<'l>, String> {
+    fn parse_if_expression(&mut self) -> Result<Expression<'l>, String> {
+        let Some(Token::LParen) = self.lexer.next() else {
+            return Err(String::from(
+                "If expression must have an opening parenthesis",
+            ));
+        };
+        let condition = self.parse_expression()?;
+        let Some(Token::RParen) = self.lexer.next() else {
+            return Err(String::from(
+                "If expression: condition must have a closing parenthesis",
+            ));
+        };
+        let Some(Token::LBrace) = self.lexer.next() else {
+            return Err(String::from(
+                "If expression: concequence must have an opening brace",
+            ));
+        };
+
+        let concequence = self.parse_statements()?;
+
+        let Some(Token::RBrace) = self.lexer.next() else {
+            return Err(String::from(
+                "If expression: concequence must have a closing brace",
+            ));
+        };
+
+        let Some(Token::Else) = self.lexer.next() else {
+            return Err(String::from("If expression must have an \"else\" block"));
+        };
+
+        let Some(Token::LBrace) = self.lexer.next() else {
+            return Err(String::from(
+                "If expression: alternative must have an opening brace",
+            ));
+        };
+
+        let alternative = self.parse_statements()?;
+
+        let Some(Token::RBrace) = self.lexer.next() else {
+            return Err(String::from(
+                "If expression: alternative must have a closing brace",
+            ));
+        };
+
+        Ok(Expression::If(
+            Box::new(condition),
+            Box::new(concequence),
+            Box::new(alternative),
+        ))
+    }
+    fn parse_statements(&mut self) -> Result<Vec<Statement<'l>>, String> {
         let mut statements: Vec<Statement> = Vec::new();
         while let Some(token) = self.lexer.peek() {
             match token {
@@ -144,22 +194,40 @@ impl<'l> Parser<'l> {
                     statements.push(Statement::Return(expr));
 
                     let Some(Token::Semicolon) = self.lexer.next() else {
-                        return Err(String::from("Statement without the semicolon"));
+                        return Err(String::from("Return statement without the semicolon"));
                     };
+                }
+                // Encountered the end of block
+                Token::RBrace => {
+                    break;
                 }
                 _ => {
                     let expr = self.parse_expression()?;
+                    dbg!(&expr);
 
                     statements.push(Statement::Expression(expr));
 
-                    let Some(Token::Semicolon) = self.lexer.next() else {
-                        return Err(String::from("Statement without the semicolon"));
-                    };
+                    if let Some(token) = self.lexer.peek() {
+                        dbg!(token);
+                        match token {
+                            Token::Semicolon => {
+                                self.lexer.next();
+                            }
+                            Token::RBrace => {}
+                            _ => {
+                                return Err(String::from("Statement without the semicolon"));
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        Ok(Program::new(statements))
+        Ok(statements)
+    }
+    #[allow(dead_code)]
+    fn parse_program(mut self) -> Result<Program<'l>, String> {
+        Ok(Program::new(self.parse_statements()?))
     }
 }
 
@@ -393,6 +461,42 @@ let barfoo = false;";
     assert_eq!(parsed_ast, expected_ast);
 }
 
+#[test]
+fn if_expression() {
+    let input = "if (x < y) { let a = x - 2; a } else { y }";
+
+    let lexer = Lexer::new(input);
+    dbg!(lexer.collect::<Vec<_>>());
+
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![Statement::Expression(Expression::If(
+        Box::new(Expression::Infix(
+            InfixOperator::LessThan,
+            Box::new(Expression::Identifier("x")),
+            Box::new(Expression::Identifier("y")),
+            false,
+        )),
+        Box::new(vec![
+            Statement::Let(
+                "a",
+                Expression::Infix(
+                    InfixOperator::Subtract,
+                    Box::new(Expression::Identifier("x")),
+                    Box::new(Expression::IntLiteral(2)),
+                    false,
+                ),
+            ),
+            Statement::Expression(Expression::Identifier("a")),
+        ]),
+        Box::new(vec![Statement::Expression(Expression::Identifier("y"))]),
+    ))]);
+    assert_eq!(parsed_ast, expected_ast);
+}
 #[test]
 fn infix_expression() {
     let input = "
