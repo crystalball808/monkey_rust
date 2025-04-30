@@ -203,12 +203,10 @@ impl<'l> Parser<'l> {
                 }
                 _ => {
                     let expr = self.parse_expression()?;
-                    dbg!(&expr);
 
                     statements.push(Statement::Expression(expr));
 
                     if let Some(token) = self.lexer.peek() {
-                        dbg!(token);
                         match token {
                             Token::Semicolon => {
                                 self.lexer.next();
@@ -466,7 +464,6 @@ fn if_expression() {
     let input = "if (x < y) { let a = x - 2; a } else { y }";
 
     let lexer = Lexer::new(input);
-    dbg!(lexer.collect::<Vec<_>>());
 
     let lexer = Lexer::new(input);
     let parser = Parser::new(lexer);
