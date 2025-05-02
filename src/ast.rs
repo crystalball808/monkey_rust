@@ -67,11 +67,7 @@ pub enum Expression<'i> {
         Box<Expression<'i>>,
         bool,
     ),
-    If(
-        Box<Expression<'i>>,
-        Box<Vec<Statement<'i>>>,
-        Box<Vec<Statement<'i>>>,
-    ),
+    If(Box<Expression<'i>>, Vec<Statement<'i>>, Vec<Statement<'i>>),
     Func(Vec<&'i str>, Vec<Statement<'i>>),
 }
 

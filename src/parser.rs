@@ -156,8 +156,8 @@ impl<'l> Parser<'l> {
 
         Ok(Expression::If(
             Box::new(condition),
-            Box::new(concequence),
-            Box::new(alternative),
+            concequence,
+            alternative,
         ))
     }
     fn parse_statements(&mut self) -> Result<Vec<Statement<'l>>, String> {
@@ -476,7 +476,7 @@ fn if_expression() {
             Box::new(Expression::Identifier("y")),
             false,
         )),
-        Box::new(vec![
+        vec![
             Statement::Let(
                 "a",
                 Expression::Infix(
@@ -487,8 +487,8 @@ fn if_expression() {
                 ),
             ),
             Statement::Expression(Expression::Identifier("a")),
-        ]),
-        Box::new(vec![Statement::Expression(Expression::Identifier("y"))]),
+        ],
+        vec![Statement::Expression(Expression::Identifier("y"))],
     ))]);
     assert_eq!(parsed_ast, expected_ast);
 }
