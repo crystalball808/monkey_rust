@@ -72,6 +72,7 @@ pub enum Expression<'i> {
         Box<Vec<Statement<'i>>>,
         Box<Vec<Statement<'i>>>,
     ),
+    Func(Vec<&'i str>, Vec<Statement<'i>>),
 }
 
 #[derive(Debug, PartialEq)]
