@@ -283,293 +283,296 @@ impl<'l> Parser<'l> {
     }
 }
 
-#[test]
-fn let_statement() {
-    let input = "
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn let_statement() {
+        let input = "
 let x = 5;
 let y = 10;
 let foobar = 838383;";
 
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Let("x", Expression::IntLiteral(5)),
-        Statement::Let("y", Expression::IntLiteral(10)),
-        Statement::Let("foobar", Expression::IntLiteral(838383)),
-    ]);
+        let expected_ast = Program::new(vec![
+            Statement::Let("x", Expression::IntLiteral(5)),
+            Statement::Let("y", Expression::IntLiteral(10)),
+            Statement::Let("foobar", Expression::IntLiteral(838383)),
+        ]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
-#[test]
-fn return_statement() {
-    let input = "
+        assert_eq!(parsed_ast, expected_ast);
+    }
+    #[test]
+    fn return_statement() {
+        let input = "
 return 5;
 return 993322;
 return foobar;
 ";
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Return(Expression::IntLiteral(5)),
-        Statement::Return(Expression::IntLiteral(993322)),
-        Statement::Return(Expression::Identifier("foobar")),
-    ]);
+        let expected_ast = Program::new(vec![
+            Statement::Return(Expression::IntLiteral(5)),
+            Statement::Return(Expression::IntLiteral(993322)),
+            Statement::Return(Expression::Identifier("foobar")),
+        ]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
+        assert_eq!(parsed_ast, expected_ast);
+    }
 
-#[test]
-fn expression_statement() {
-    let input = "
+    #[test]
+    fn expression_statement() {
+        let input = "
 foobar;
 5;";
 
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Expression(Expression::Identifier("foobar")),
-        Statement::Expression(Expression::IntLiteral(5)),
-    ]);
+        let expected_ast = Program::new(vec![
+            Statement::Expression(Expression::Identifier("foobar")),
+            Statement::Expression(Expression::IntLiteral(5)),
+        ]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
+        assert_eq!(parsed_ast, expected_ast);
+    }
 
-#[test]
-fn prefix_expression() {
-    let input = "-5;
+    #[test]
+    fn prefix_expression() {
+        let input = "-5;
 -foobar;
 !10;
 !x;";
 
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Expression(Expression::Prefix(
-            PrefixOperator::Negative,
-            Box::new(Expression::IntLiteral(5)),
-        )),
-        Statement::Expression(Expression::Prefix(
-            PrefixOperator::Negative,
-            Box::new(Expression::Identifier("foobar")),
-        )),
-        Statement::Expression(Expression::Prefix(
-            PrefixOperator::Not,
-            Box::new(Expression::IntLiteral(10)),
-        )),
-        Statement::Expression(Expression::Prefix(
-            PrefixOperator::Not,
-            Box::new(Expression::Identifier("x")),
-        )),
-    ]);
+        let expected_ast = Program::new(vec![
+            Statement::Expression(Expression::Prefix(
+                PrefixOperator::Negative,
+                Box::new(Expression::IntLiteral(5)),
+            )),
+            Statement::Expression(Expression::Prefix(
+                PrefixOperator::Negative,
+                Box::new(Expression::Identifier("foobar")),
+            )),
+            Statement::Expression(Expression::Prefix(
+                PrefixOperator::Not,
+                Box::new(Expression::IntLiteral(10)),
+            )),
+            Statement::Expression(Expression::Prefix(
+                PrefixOperator::Not,
+                Box::new(Expression::Identifier("x")),
+            )),
+        ]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
+        assert_eq!(parsed_ast, expected_ast);
+    }
 
-#[test]
-fn infix_precedence() {
-    let input = "
+    #[test]
+    fn infix_precedence() {
+        let input = "
 5 + 10 / 2;
 10 / 2 + 5;
 10 - 2 < 7 + 3;
 5 + 4 > 6;
 3 > 5 == false;
 ";
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Add,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::Infix(
-                InfixOperator::Divide,
-                Box::new(Expression::IntLiteral(10)),
-                Box::new(Expression::IntLiteral(2)),
-                false,
-            )),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Add,
-            Box::new(Expression::Infix(
-                InfixOperator::Divide,
-                Box::new(Expression::IntLiteral(10)),
-                Box::new(Expression::IntLiteral(2)),
-                false,
-            )),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::LessThan,
-            Box::new(Expression::Infix(
-                InfixOperator::Subtract,
-                Box::new(Expression::IntLiteral(10)),
-                Box::new(Expression::IntLiteral(2)),
-                false,
-            )),
-            Box::new(Expression::Infix(
-                InfixOperator::Add,
-                Box::new(Expression::IntLiteral(7)),
-                Box::new(Expression::IntLiteral(3)),
-                false,
-            )),
-            false,
-        )),
-        // 5 + 4 > 6;
-        Statement::Expression(Expression::Infix(
-            InfixOperator::GreaterThan,
-            Box::new(Expression::Infix(
+        let expected_ast = Program::new(vec![
+            Statement::Expression(Expression::Infix(
                 InfixOperator::Add,
                 Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(4)),
+                Box::new(Expression::Infix(
+                    InfixOperator::Divide,
+                    Box::new(Expression::IntLiteral(10)),
+                    Box::new(Expression::IntLiteral(2)),
+                    false,
+                )),
                 false,
             )),
-            Box::new(Expression::IntLiteral(6)),
-            false,
-        )),
-        // 3 > 5 == false;
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Equals,
-            Box::new(Expression::Infix(
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::Infix(
+                    InfixOperator::Divide,
+                    Box::new(Expression::IntLiteral(10)),
+                    Box::new(Expression::IntLiteral(2)),
+                    false,
+                )),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::LessThan,
+                Box::new(Expression::Infix(
+                    InfixOperator::Subtract,
+                    Box::new(Expression::IntLiteral(10)),
+                    Box::new(Expression::IntLiteral(2)),
+                    false,
+                )),
+                Box::new(Expression::Infix(
+                    InfixOperator::Add,
+                    Box::new(Expression::IntLiteral(7)),
+                    Box::new(Expression::IntLiteral(3)),
+                    false,
+                )),
+                false,
+            )),
+            // 5 + 4 > 6;
+            Statement::Expression(Expression::Infix(
                 InfixOperator::GreaterThan,
-                Box::new(Expression::IntLiteral(3)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::Infix(
+                    InfixOperator::Add,
+                    Box::new(Expression::IntLiteral(5)),
+                    Box::new(Expression::IntLiteral(4)),
+                    false,
+                )),
+                Box::new(Expression::IntLiteral(6)),
                 false,
             )),
-            Box::new(Expression::Boolean(false)),
-            false,
-        )),
-    ]);
+            // 3 > 5 == false;
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Equals,
+                Box::new(Expression::Infix(
+                    InfixOperator::GreaterThan,
+                    Box::new(Expression::IntLiteral(3)),
+                    Box::new(Expression::IntLiteral(5)),
+                    false,
+                )),
+                Box::new(Expression::Boolean(false)),
+                false,
+            )),
+        ]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
+        assert_eq!(parsed_ast, expected_ast);
+    }
 
-#[test]
-fn grouped() {
-    let input = "
+    #[test]
+    fn grouped() {
+        let input = "
 (5 + 10) / 2;";
 
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
-    let expected_ast = Program::new(vec![Statement::Expression(Expression::Infix(
-        InfixOperator::Divide,
-        Box::new(Expression::Infix(
-            InfixOperator::Add,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(10)),
-            true,
-        )),
-        Box::new(Expression::IntLiteral(2)),
-        false,
-    ))]);
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let expected_ast = Program::new(vec![Statement::Expression(Expression::Infix(
+            InfixOperator::Divide,
+            Box::new(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(10)),
+                true,
+            )),
+            Box::new(Expression::IntLiteral(2)),
+            false,
+        ))]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
+        assert_eq!(parsed_ast, expected_ast);
+    }
 
-#[test]
-fn boolean() {
-    let input = "
+    #[test]
+    fn boolean() {
+        let input = "
 true;
 false;
 let foobar = true;
 let barfoo = false;";
 
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Expression(Expression::Boolean(true)),
-        Statement::Expression(Expression::Boolean(false)),
-        Statement::Let("foobar", Expression::Boolean(true)),
-        Statement::Let("barfoo", Expression::Boolean(false)),
-    ]);
+        let expected_ast = Program::new(vec![
+            Statement::Expression(Expression::Boolean(true)),
+            Statement::Expression(Expression::Boolean(false)),
+            Statement::Let("foobar", Expression::Boolean(true)),
+            Statement::Let("barfoo", Expression::Boolean(false)),
+        ]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
+        assert_eq!(parsed_ast, expected_ast);
+    }
 
-#[test]
-fn function_literal() {
-    let input = "fn(x, y) { return x + y; }";
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+    #[test]
+    fn function_literal() {
+        let input = "fn(x, y) { return x + y; }";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![Statement::Expression(Expression::Func(
-        vec!["x", "y"],
-        vec![Statement::Return(Expression::Infix(
-            InfixOperator::Add,
-            Box::new(Expression::Identifier("x")),
-            Box::new(Expression::Identifier("y")),
-            false,
-        ))],
-    ))]);
+        let expected_ast = Program::new(vec![Statement::Expression(Expression::Func(
+            vec!["x", "y"],
+            vec![Statement::Return(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::Identifier("x")),
+                Box::new(Expression::Identifier("y")),
+                false,
+            ))],
+        ))]);
 
-    assert_eq!(parsed_ast, expected_ast);
-}
-#[test]
-fn if_expression() {
-    let input = "if (x < y) { let a = x - 2; a } else { y }";
+        assert_eq!(parsed_ast, expected_ast);
+    }
+    #[test]
+    fn if_expression() {
+        let input = "if (x < y) { let a = x - 2; a } else { y }";
 
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![Statement::Expression(Expression::If(
-        Box::new(Expression::Infix(
-            InfixOperator::LessThan,
-            Box::new(Expression::Identifier("x")),
-            Box::new(Expression::Identifier("y")),
-            false,
-        )),
-        vec![
-            Statement::Let(
-                "a",
-                Expression::Infix(
-                    InfixOperator::Subtract,
-                    Box::new(Expression::Identifier("x")),
-                    Box::new(Expression::IntLiteral(2)),
-                    false,
+        let expected_ast = Program::new(vec![Statement::Expression(Expression::If(
+            Box::new(Expression::Infix(
+                InfixOperator::LessThan,
+                Box::new(Expression::Identifier("x")),
+                Box::new(Expression::Identifier("y")),
+                false,
+            )),
+            vec![
+                Statement::Let(
+                    "a",
+                    Expression::Infix(
+                        InfixOperator::Subtract,
+                        Box::new(Expression::Identifier("x")),
+                        Box::new(Expression::IntLiteral(2)),
+                        false,
+                    ),
                 ),
-            ),
-            Statement::Expression(Expression::Identifier("a")),
-        ],
-        vec![Statement::Expression(Expression::Identifier("y"))],
-    ))]);
-    assert_eq!(parsed_ast, expected_ast);
-}
-#[test]
-fn infix_expression() {
-    let input = "
+                Statement::Expression(Expression::Identifier("a")),
+            ],
+            vec![Statement::Expression(Expression::Identifier("y"))],
+        ))]);
+        assert_eq!(parsed_ast, expected_ast);
+    }
+    #[test]
+    fn infix_expression() {
+        let input = "
 5 + 5;
 5 - 5;
 5 * 5;
@@ -579,61 +582,62 @@ fn infix_expression() {
 5 == 5;
 5 != 5;
 ";
-    let lexer = Lexer::new(input);
-    let parser = Parser::new(lexer);
-    let parsed_ast = parser
-        .parse_program()
-        .expect("Should be parsed successfully");
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
 
-    let expected_ast = Program::new(vec![
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Add,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Subtract,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Multiply,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Divide,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::GreaterThan,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::LessThan,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::Equals,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-        Statement::Expression(Expression::Infix(
-            InfixOperator::NotEquals,
-            Box::new(Expression::IntLiteral(5)),
-            Box::new(Expression::IntLiteral(5)),
-            false,
-        )),
-    ]);
-    assert_eq!(parsed_ast, expected_ast);
+        let expected_ast = Program::new(vec![
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Subtract,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Multiply,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Divide,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::GreaterThan,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::LessThan,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::Equals,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+            Statement::Expression(Expression::Infix(
+                InfixOperator::NotEquals,
+                Box::new(Expression::IntLiteral(5)),
+                Box::new(Expression::IntLiteral(5)),
+                false,
+            )),
+        ]);
+        assert_eq!(parsed_ast, expected_ast);
+    }
 }
