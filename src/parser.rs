@@ -72,6 +72,7 @@ impl<'l> Parser<'l> {
             }
             Token::LParen => self.parse_grouped_expression()?,
             Token::If => self.parse_if_expression()?,
+            Token::Function => self.parse_function_literal()?,
 
             other_token => {
                 return Err(String::from(format!("Unexpected token: {:?}", other_token)));
@@ -79,6 +80,59 @@ impl<'l> Parser<'l> {
         };
 
         Ok(expr)
+    }
+    fn parse_function_literal(&mut self) -> Result<Expression<'l>, String> {
+        let mut param_names = Vec::new();
+
+        // parse function parameters
+        let Some(Token::LParen) = self.lexer.next() else {
+            return Err(String::from("Function literal should have parameters"));
+        };
+
+        while let Some(token) = self.lexer.next() {
+            if let Token::Identifier(param_name) = token {
+                param_names.push(param_name)
+            } else {
+                return Err(format!(
+                    "Invalid function parameter syntax: parameter expected, got {:?}",
+                    token
+                ));
+            }
+
+            let Some(next_token) = self.lexer.next() else {
+                return Err(String::from(
+                    "Invalid function parameter syntax: not finished",
+                ));
+            };
+
+            match next_token {
+                Token::Comma => {}
+                Token::RParen => break,
+                other => {
+                    return Err(format!(
+                        "Invalid function parameter syntax: comma or right parenthesis expected, got {:?}",
+                        other
+                    ));
+                }
+            }
+        }
+
+        // parse function body
+        let Some(Token::LBrace) = self.lexer.next() else {
+            return Err(String::from(
+                "Invalid function body syntax: body must have an opening brace",
+            ));
+        };
+
+        let body = self.parse_statements()?;
+
+        let Some(Token::RBrace) = self.lexer.next() else {
+            return Err(String::from(
+                "Invalid function body syntax: body must have a closing brace",
+            ));
+        };
+
+        Ok(Expression::Func(param_names, body))
     }
     fn parse_grouped_expression(&mut self) -> Result<Expression<'l>, String> {
         let mut expr = self.parse_single_expression()?;
@@ -172,7 +226,7 @@ impl<'l> Parser<'l> {
                         .ok_or(String::from("Let statement not finished"))?
                     {
                         Token::Identifier(ident) => ident,
-                        _ => return Err(String::from("Illegal synthax")),
+                        _ => return Err(String::from("Illegal syntax")),
                     };
 
                     let Some(Token::Assign) = self.lexer.next() else {
@@ -459,6 +513,27 @@ let barfoo = false;";
     assert_eq!(parsed_ast, expected_ast);
 }
 
+#[test]
+fn function_literal() {
+    let input = "fn(x, y) { return x + y; }";
+    let lexer = Lexer::new(input);
+    let parser = Parser::new(lexer);
+    let parsed_ast = parser
+        .parse_program()
+        .expect("Should be parsed successfully");
+
+    let expected_ast = Program::new(vec![Statement::Expression(Expression::Func(
+        vec!["x", "y"],
+        vec![Statement::Return(Expression::Infix(
+            InfixOperator::Add,
+            Box::new(Expression::Identifier("x")),
+            Box::new(Expression::Identifier("y")),
+            false,
+        ))],
+    ))]);
+
+    assert_eq!(parsed_ast, expected_ast);
+}
 #[test]
 fn if_expression() {
     let input = "if (x < y) { let a = x - 2; a } else { y }";
