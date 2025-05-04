@@ -3,7 +3,7 @@ use crate::{
     object::Object,
 };
 
-fn eval_statements(statements: Vec<Statement>) -> Result<Object, String> {
+pub fn eval_statements(statements: Vec<Statement>) -> Result<Object, String> {
     let mut result = Object::Null;
 
     for statement in statements {
