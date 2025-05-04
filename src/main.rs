@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use monkey_rust::Lexer;
+use monkey_rust::{Lexer, parser};
 
 #[derive(Parser)]
 struct Cli {
@@ -47,9 +47,12 @@ fn run_repl() -> io::Result<()> {
     io::stdout().flush()?;
     let mut input = String::new();
     while let Ok(_bytes) = reader.read_line(&mut input) {
-        let tokens: Vec<_> = Lexer::new(&input).collect();
+        let lexer = Lexer::new(&input);
+        match parser::Parser::new(lexer).parse_program() {
+            Ok(program) => println!("{:?}", program),
+            Err(error) => println!("[Parser Error] {}", error),
+        }
 
-        println!("{:?}", tokens);
         input.clear();
         print!(">> ");
         io::stdout().flush()?;

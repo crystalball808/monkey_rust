@@ -5,13 +5,12 @@ use crate::{
     ast::{Expression, InfixOperator, PrefixOperator, Program, Statement},
 };
 
-struct Parser<'l> {
+pub struct Parser<'l> {
     lexer: Peekable<Lexer<'l>>,
 }
 
 impl<'l> Parser<'l> {
-    #[allow(dead_code)]
-    fn new(lexer: Lexer<'l>) -> Self {
+    pub fn new(lexer: Lexer<'l>) -> Self {
         Self {
             lexer: lexer.peekable(),
         }
@@ -327,8 +326,7 @@ impl<'l> Parser<'l> {
 
         Ok(statements)
     }
-    #[allow(dead_code)]
-    fn parse_program(mut self) -> Result<Program<'l>, String> {
+    pub fn parse_program(mut self) -> Result<Program<'l>, String> {
         Ok(Program::new(self.parse_statements()?))
     }
 }
