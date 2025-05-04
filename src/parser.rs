@@ -338,6 +338,7 @@ impl<'l> Parser<'l> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use Expression::*;
     #[test]
     fn let_statement() {
         let input = "
@@ -352,9 +353,9 @@ let foobar = 838383;";
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Let("x", Expression::IntLiteral(5)),
-            Statement::Let("y", Expression::IntLiteral(10)),
-            Statement::Let("foobar", Expression::IntLiteral(838383)),
+            Statement::Let("x", IntLiteral(5)),
+            Statement::Let("y", IntLiteral(10)),
+            Statement::Let("foobar", IntLiteral(838383)),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -373,9 +374,9 @@ return foobar;
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Return(Expression::IntLiteral(5)),
-            Statement::Return(Expression::IntLiteral(993322)),
-            Statement::Return(Expression::Identifier("foobar")),
+            Statement::Return(IntLiteral(5)),
+            Statement::Return(IntLiteral(993322)),
+            Statement::Return(Identifier("foobar")),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -394,8 +395,8 @@ foobar;
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Expression(Expression::Identifier("foobar")),
-            Statement::Expression(Expression::IntLiteral(5)),
+            Statement::Expression(Identifier("foobar")),
+            Statement::Expression(IntLiteral(5)),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -415,22 +416,13 @@ foobar;
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Expression(Expression::Prefix(
+            Statement::Expression(Prefix(PrefixOperator::Negative, Box::new(IntLiteral(5)))),
+            Statement::Expression(Prefix(
                 PrefixOperator::Negative,
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(Identifier("foobar")),
             )),
-            Statement::Expression(Expression::Prefix(
-                PrefixOperator::Negative,
-                Box::new(Expression::Identifier("foobar")),
-            )),
-            Statement::Expression(Expression::Prefix(
-                PrefixOperator::Not,
-                Box::new(Expression::IntLiteral(10)),
-            )),
-            Statement::Expression(Expression::Prefix(
-                PrefixOperator::Not,
-                Box::new(Expression::Identifier("x")),
-            )),
+            Statement::Expression(Prefix(PrefixOperator::Not, Box::new(IntLiteral(10)))),
+            Statement::Expression(Prefix(PrefixOperator::Not, Box::new(Identifier("x")))),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -452,66 +444,66 @@ foobar;
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Add,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::Infix(
+                Box::new(IntLiteral(5)),
+                Box::new(Infix(
                     InfixOperator::Divide,
-                    Box::new(Expression::IntLiteral(10)),
-                    Box::new(Expression::IntLiteral(2)),
+                    Box::new(IntLiteral(10)),
+                    Box::new(IntLiteral(2)),
                     false,
                 )),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Add,
-                Box::new(Expression::Infix(
+                Box::new(Infix(
                     InfixOperator::Divide,
-                    Box::new(Expression::IntLiteral(10)),
-                    Box::new(Expression::IntLiteral(2)),
+                    Box::new(IntLiteral(10)),
+                    Box::new(IntLiteral(2)),
                     false,
                 )),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::LessThan,
-                Box::new(Expression::Infix(
+                Box::new(Infix(
                     InfixOperator::Subtract,
-                    Box::new(Expression::IntLiteral(10)),
-                    Box::new(Expression::IntLiteral(2)),
+                    Box::new(IntLiteral(10)),
+                    Box::new(IntLiteral(2)),
                     false,
                 )),
-                Box::new(Expression::Infix(
+                Box::new(Infix(
                     InfixOperator::Add,
-                    Box::new(Expression::IntLiteral(7)),
-                    Box::new(Expression::IntLiteral(3)),
+                    Box::new(IntLiteral(7)),
+                    Box::new(IntLiteral(3)),
                     false,
                 )),
                 false,
             )),
             // 5 + 4 > 6;
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::GreaterThan,
-                Box::new(Expression::Infix(
+                Box::new(Infix(
                     InfixOperator::Add,
-                    Box::new(Expression::IntLiteral(5)),
-                    Box::new(Expression::IntLiteral(4)),
+                    Box::new(IntLiteral(5)),
+                    Box::new(IntLiteral(4)),
                     false,
                 )),
-                Box::new(Expression::IntLiteral(6)),
+                Box::new(IntLiteral(6)),
                 false,
             )),
             // 3 > 5 == false;
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Equals,
-                Box::new(Expression::Infix(
+                Box::new(Infix(
                     InfixOperator::GreaterThan,
-                    Box::new(Expression::IntLiteral(3)),
-                    Box::new(Expression::IntLiteral(5)),
+                    Box::new(IntLiteral(3)),
+                    Box::new(IntLiteral(5)),
                     false,
                 )),
-                Box::new(Expression::Boolean(false)),
+                Box::new(Boolean(false)),
                 false,
             )),
         ]);
@@ -529,15 +521,15 @@ foobar;
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let expected_ast = Program::new(vec![Statement::Expression(Expression::Infix(
+        let expected_ast = Program::new(vec![Statement::Expression(Infix(
             InfixOperator::Divide,
-            Box::new(Expression::Infix(
+            Box::new(Infix(
                 InfixOperator::Add,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(10)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(10)),
                 true,
             )),
-            Box::new(Expression::IntLiteral(2)),
+            Box::new(IntLiteral(2)),
             false,
         ))]);
 
@@ -559,10 +551,10 @@ let barfoo = false;";
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Expression(Expression::Boolean(true)),
-            Statement::Expression(Expression::Boolean(false)),
-            Statement::Let("foobar", Expression::Boolean(true)),
-            Statement::Let("barfoo", Expression::Boolean(false)),
+            Statement::Expression(Boolean(true)),
+            Statement::Expression(Boolean(false)),
+            Statement::Let("foobar", Boolean(true)),
+            Statement::Let("barfoo", Boolean(false)),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -577,12 +569,12 @@ let barfoo = false;";
             .parse_program()
             .expect("Should be parsed successfully");
 
-        let expected_ast = Program::new(vec![Statement::Expression(Expression::Func(
+        let expected_ast = Program::new(vec![Statement::Expression(Func(
             vec!["x", "y"],
-            vec![Statement::Return(Expression::Infix(
+            vec![Statement::Return(Infix(
                 InfixOperator::Add,
-                Box::new(Expression::Identifier("x")),
-                Box::new(Expression::Identifier("y")),
+                Box::new(Identifier("x")),
+                Box::new(Identifier("y")),
                 false,
             ))],
         ))]);
@@ -599,26 +591,26 @@ let barfoo = false;";
             .parse_program()
             .expect("Should be parsed successfully");
 
-        let expected_ast = Program::new(vec![Statement::Expression(Expression::If(
-            Box::new(Expression::Infix(
+        let expected_ast = Program::new(vec![Statement::Expression(If(
+            Box::new(Infix(
                 InfixOperator::LessThan,
-                Box::new(Expression::Identifier("x")),
-                Box::new(Expression::Identifier("y")),
+                Box::new(Identifier("x")),
+                Box::new(Identifier("y")),
                 false,
             )),
             vec![
                 Statement::Let(
                     "a",
-                    Expression::Infix(
+                    Infix(
                         InfixOperator::Subtract,
-                        Box::new(Expression::Identifier("x")),
-                        Box::new(Expression::IntLiteral(2)),
+                        Box::new(Identifier("x")),
+                        Box::new(IntLiteral(2)),
                         false,
                     ),
                 ),
-                Statement::Expression(Expression::Identifier("a")),
+                Statement::Expression(Identifier("a")),
             ],
-            vec![Statement::Expression(Expression::Identifier("y"))],
+            vec![Statement::Expression(Identifier("y"))],
         ))]);
         assert_eq!(parsed_ast, expected_ast);
     }
@@ -631,20 +623,20 @@ let barfoo = false;";
             .parse_program()
             .expect("Should be parsed successfully");
 
-        let expected_ast = Program::new(vec![Statement::Expression(Expression::Call(
-            Box::new(Expression::Identifier("add")),
+        let expected_ast = Program::new(vec![Statement::Expression(Call(
+            Box::new(Identifier("add")),
             vec![
-                Expression::IntLiteral(1),
-                Expression::Infix(
+                IntLiteral(1),
+                Infix(
                     InfixOperator::Multiply,
-                    Box::new(Expression::IntLiteral(2)),
-                    Box::new(Expression::IntLiteral(3)),
+                    Box::new(IntLiteral(2)),
+                    Box::new(IntLiteral(3)),
                     false,
                 ),
-                Expression::Infix(
+                Infix(
                     InfixOperator::Add,
-                    Box::new(Expression::IntLiteral(4)),
-                    Box::new(Expression::IntLiteral(5)),
+                    Box::new(IntLiteral(4)),
+                    Box::new(IntLiteral(5)),
                     false,
                 ),
             ],
@@ -660,23 +652,23 @@ let barfoo = false;";
             .parse_program()
             .expect("Should be parsed successfully");
 
-        let expected_ast = Program::new(vec![Statement::Expression(Expression::Infix(
+        let expected_ast = Program::new(vec![Statement::Expression(Infix(
             InfixOperator::Subtract,
-            Box::new(Expression::Infix(
+            Box::new(Infix(
                 InfixOperator::Add,
-                Box::new(Expression::Identifier("a")),
-                Box::new(Expression::Call(
-                    Box::new(Expression::Identifier("add")),
-                    vec![Expression::Infix(
+                Box::new(Identifier("a")),
+                Box::new(Call(
+                    Box::new(Identifier("add")),
+                    vec![Infix(
                         InfixOperator::Multiply,
-                        Box::new(Expression::Identifier("b")),
-                        Box::new(Expression::Identifier("c")),
+                        Box::new(Identifier("b")),
+                        Box::new(Identifier("c")),
                         false,
                     )],
                 )),
                 false,
             )),
-            Box::new(Expression::Identifier("d")),
+            Box::new(Identifier("d")),
             false,
         ))]);
         assert_eq!(parsed_ast, expected_ast);
@@ -700,52 +692,52 @@ let barfoo = false;";
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Add,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Subtract,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Multiply,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Divide,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::GreaterThan,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::LessThan,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::Equals,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
-            Statement::Expression(Expression::Infix(
+            Statement::Expression(Infix(
                 InfixOperator::NotEquals,
-                Box::new(Expression::IntLiteral(5)),
-                Box::new(Expression::IntLiteral(5)),
+                Box::new(IntLiteral(5)),
+                Box::new(IntLiteral(5)),
                 false,
             )),
         ]);
