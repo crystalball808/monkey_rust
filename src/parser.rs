@@ -105,33 +105,37 @@ impl<'l> Parser<'l> {
             return Err(String::from("Function literal should have parameters"));
         };
 
-        while let Some(token) = self.lexer.next() {
-            if let Token::Identifier(param_name) = token {
-                param_names.push(param_name)
-            } else {
-                return Err(format!(
-                    "Invalid function parameter syntax: parameter expected, got {:?}",
-                    token
-                ));
-            }
-
-            let Some(next_token) = self.lexer.next() else {
-                return Err(String::from(
-                    "Invalid function parameter syntax: not finished",
-                ));
-            };
-
-            match next_token {
-                Token::Comma => {}
-                Token::RParen => break,
-                other => {
+        if let Some(Token::RParen) = self.lexer.peek() {
+            self.lexer.next();
+        } else {
+            while let Some(token) = self.lexer.next() {
+                if let Token::Identifier(param_name) = token {
+                    param_names.push(param_name)
+                } else {
                     return Err(format!(
-                        "Invalid function parameter syntax: comma or right parenthesis expected, got {:?}",
-                        other
+                        "Invalid function parameter syntax: parameter expected, got {:?}",
+                        token
                     ));
                 }
+
+                let Some(next_token) = self.lexer.next() else {
+                    return Err(String::from(
+                        "Invalid function parameter syntax: not finished",
+                    ));
+                };
+
+                match next_token {
+                    Token::Comma => {}
+                    Token::RParen => break,
+                    other => {
+                        return Err(format!(
+                            "Invalid function parameter syntax: comma or right parenthesis expected, got {:?}",
+                            other
+                        ));
+                    }
+                }
             }
-        }
+        };
 
         // parse function body
         let Some(Token::LBrace) = self.lexer.next() else {
