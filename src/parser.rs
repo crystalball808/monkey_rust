@@ -571,6 +571,35 @@ let barfoo = false;";
         assert_eq!(parsed_ast, expected_ast);
     }
     #[test]
+    fn call_expression() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+
+        let expected_ast = Program::new(vec![Statement::Expression(Expression::Call(
+            Box::new(Expression::Identifier("add")),
+            vec![
+                Expression::IntLiteral(1),
+                Expression::Infix(
+                    InfixOperator::Multiply,
+                    Box::new(Expression::IntLiteral(2)),
+                    Box::new(Expression::IntLiteral(3)),
+                    false,
+                ),
+                Expression::Infix(
+                    InfixOperator::Add,
+                    Box::new(Expression::IntLiteral(4)),
+                    Box::new(Expression::IntLiteral(5)),
+                    false,
+                ),
+            ],
+        ))]);
+        assert_eq!(parsed_ast, expected_ast);
+    }
+    #[test]
     fn infix_expression() {
         let input = "
 5 + 5;

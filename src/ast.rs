@@ -69,6 +69,7 @@ pub enum Expression<'i> {
     ),
     If(Box<Expression<'i>>, Vec<Statement<'i>>, Vec<Statement<'i>>),
     Func(Vec<&'i str>, Vec<Statement<'i>>),
+    Call(Box<Expression<'i>>, Vec<Expression<'i>>),
 }
 
 #[derive(Debug, PartialEq)]
