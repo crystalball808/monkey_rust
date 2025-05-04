@@ -7,3 +7,6 @@ pub use lexer::Lexer;
 pub mod ast;
 
 pub mod parser;
+
+pub mod evaluation;
+pub mod object;

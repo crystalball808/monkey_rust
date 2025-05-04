@@ -81,7 +81,7 @@ pub enum Statement<'i> {
 
 #[derive(Debug, PartialEq)]
 pub struct Program<'i> {
-    statements: Vec<Statement<'i>>,
+    pub statements: Vec<Statement<'i>>,
 }
 
 impl<'i> Program<'i> {
