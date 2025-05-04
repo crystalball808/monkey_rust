@@ -25,7 +25,7 @@ impl<'l> Parser<'l> {
             .expect("Should be valid infix operator");
 
         if let Expression::Infix(left_infix_operator, _, _, false) = &left_expr {
-            if left_infix_operator.get_precedence() > infix_operator.get_precedence() {
+            if left_infix_operator.get_precedence() >= infix_operator.get_precedence() {
                 let right_expr = self.parse_single_expression()?;
                 return Ok(Expression::Infix(
                     infix_operator,
@@ -63,7 +63,14 @@ impl<'l> Parser<'l> {
             Token::Int(integer) => Expression::IntLiteral(integer),
             Token::False => Expression::Boolean(false),
             Token::True => Expression::Boolean(true),
-            Token::Identifier(identifier) => Expression::Identifier(identifier),
+            Token::Identifier(identifier) => {
+                let expr = Expression::Identifier(identifier);
+                if let Some(Token::LParen) = self.lexer.peek() {
+                    self.parse_call(expr)?
+                } else {
+                    expr
+                }
+            }
             Token::Minus => {
                 Expression::Prefix(PrefixOperator::Negative, Box::new(self.parse_expression()?))
             }
@@ -72,7 +79,14 @@ impl<'l> Parser<'l> {
             }
             Token::LParen => self.parse_grouped_expression()?,
             Token::If => self.parse_if_expression()?,
-            Token::Function => self.parse_function_literal()?,
+            Token::Function => {
+                let expr = self.parse_function_literal()?;
+                if let Some(Token::LParen) = self.lexer.peek() {
+                    self.parse_call(expr)?
+                } else {
+                    expr
+                }
+            }
 
             other_token => {
                 return Err(String::from(format!(
@@ -158,7 +172,7 @@ impl<'l> Parser<'l> {
     fn parse_call(&mut self, func_expr: Expression<'l>) -> Result<Expression<'l>, String> {
         assert!(matches!(
             func_expr,
-            Expression::Call(_, _) | Expression::Identifier(_)
+            Expression::Func(_, _) | Expression::Identifier(_)
         ),);
 
         let Some(Token::LParen) = self.lexer.next() else {
@@ -193,8 +207,6 @@ impl<'l> Parser<'l> {
         while let Some(peekeed_token) = self.lexer.peek() {
             if InfixOperator::try_from(peekeed_token).is_ok() {
                 expr = self.infix_parse(expr, false)?;
-            } else if let Token::LParen = peekeed_token {
-                return self.parse_call(expr);
             } else {
                 return Ok(expr);
             }
@@ -634,6 +646,36 @@ let barfoo = false;";
                     false,
                 ),
             ],
+        ))]);
+        assert_eq!(parsed_ast, expected_ast);
+    }
+    #[test]
+    fn infix_call() {
+        let input = "a + add(b * c) - d";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+
+        let expected_ast = Program::new(vec![Statement::Expression(Expression::Infix(
+            InfixOperator::Subtract,
+            Box::new(Expression::Infix(
+                InfixOperator::Add,
+                Box::new(Expression::Identifier("a")),
+                Box::new(Expression::Call(
+                    Box::new(Expression::Identifier("add")),
+                    vec![Expression::Infix(
+                        InfixOperator::Multiply,
+                        Box::new(Expression::Identifier("b")),
+                        Box::new(Expression::Identifier("c")),
+                        false,
+                    )],
+                )),
+                false,
+            )),
+            Box::new(Expression::Identifier("d")),
+            false,
         ))]);
         assert_eq!(parsed_ast, expected_ast);
     }
