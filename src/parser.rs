@@ -75,7 +75,10 @@ impl<'l> Parser<'l> {
             Token::Function => self.parse_function_literal()?,
 
             other_token => {
-                return Err(String::from(format!("Unexpected token: {:?}", other_token)));
+                return Err(String::from(format!(
+                    "Parse single expession: Unexpected token: {:?}",
+                    other_token
+                )));
             }
         };
 
@@ -152,11 +155,46 @@ impl<'l> Parser<'l> {
         }
         Ok(expr)
     }
+    fn parse_call(&mut self, func_expr: Expression<'l>) -> Result<Expression<'l>, String> {
+        assert!(matches!(
+            func_expr,
+            Expression::Call(_, _) | Expression::Identifier(_)
+        ),);
+
+        let Some(Token::LParen) = self.lexer.next() else {
+            return Err(String::from("Call expression must have parentheses"));
+        };
+        let mut arguments = Vec::new();
+
+        loop {
+            arguments.push(self.parse_expression()?);
+            match self.lexer.peek() {
+                Some(Token::RParen) => {
+                    self.lexer.next();
+                    break;
+                }
+                Some(Token::Comma) => {
+                    self.lexer.next();
+                }
+                other => {
+                    return Err(format!(
+                        "Parse call: expected right parenthesis or comma, got {:?}",
+                        other
+                    ));
+                }
+            }
+        }
+
+        Ok(Expression::Call(Box::new(func_expr), arguments))
+    }
+
     fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
         let mut expr = self.parse_single_expression()?;
         while let Some(peekeed_token) = self.lexer.peek() {
             if InfixOperator::try_from(peekeed_token).is_ok() {
                 expr = self.infix_parse(expr, false)?;
+            } else if let Token::LParen = peekeed_token {
+                return self.parse_call(expr);
             } else {
                 return Ok(expr);
             }
