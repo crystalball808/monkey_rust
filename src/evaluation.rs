@@ -50,4 +50,3 @@ mod test {
         assert_eq!(result, Object::Integer(10));
     }
 }
-

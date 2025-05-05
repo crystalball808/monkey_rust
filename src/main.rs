@@ -51,9 +51,9 @@ fn run_repl() -> io::Result<()> {
         match parser::Parser::new(lexer).parse_program() {
             Ok(program) => match eval_statements(program.statements) {
                 Ok(result) => println!("{result}"),
-                Err(error) => println!("[Evaluation Error] {}", error),
+                Err(error) => println!("[Evaluation Error] {error}"),
             },
-            Err(error) => println!("[Parser Error] {}", error),
+            Err(error) => println!("[Parser Error] {error}"),
         }
 
         input.clear();
