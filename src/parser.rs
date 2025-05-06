@@ -15,6 +15,7 @@ impl<'l> Parser<'l> {
             lexer: lexer.peekable(),
         }
     }
+    /// Parses infix expressions, such as "1 + 1" etc.
     fn infix_parse(
         &mut self,
         left_expr: Expression<'l>,
