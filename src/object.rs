@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Object {
-    Integer(u32),
+    Integer(i32),
     Boolean(bool),
     Null,
 }

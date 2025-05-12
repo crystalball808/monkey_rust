@@ -4,7 +4,7 @@ pub enum Token<'a> {
 
     // Identifiers + literals
     Identifier(&'a str),
-    Int(u32),
+    Int(i32),
 
     // Operators
     Assign,
