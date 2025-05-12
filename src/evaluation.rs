@@ -1,5 +1,7 @@
+use std::ops::Deref;
+
 use crate::{
-    ast::{Expression, Statement},
+    ast::{Expression, PrefixOperator, Statement},
     object::Object,
 };
 
@@ -17,7 +19,12 @@ fn eval_expression(expr: Expression) -> Result<Object, String> {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer)),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean)),
         Expression::Identifier(_) => todo!(),
-        Expression::Prefix(prefix_operator, expression) => todo!(),
+        Expression::Prefix(PrefixOperator::Negative, _) => todo!(),
+        Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr)? {
+            Object::Integer(integer) => Ok(Object::Boolean(integer == 0)),
+            Object::Boolean(boolean) => Ok(Object::Boolean(!boolean)),
+            Object::Null => Ok(Object::Boolean(true)),
+        },
         Expression::Infix(infix_operator, expression, expression1, _) => todo!(),
         Expression::If(expression, vec, vec1) => todo!(),
         Expression::Func(vec, vec1) => todo!(),
