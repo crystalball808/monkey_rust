@@ -15,7 +15,7 @@ pub fn eval_statements(statements: Vec<Statement>) -> Result<Object, String> {
 fn eval_expression(expr: Expression) -> Result<Object, String> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer)),
-        Expression::Boolean(_) => todo!(),
+        Expression::Boolean(boolean) => Ok(Object::Boolean(boolean)),
         Expression::Identifier(_) => todo!(),
         Expression::Prefix(prefix_operator, expression) => todo!(),
         Expression::Infix(infix_operator, expression, expression1, _) => todo!(),
