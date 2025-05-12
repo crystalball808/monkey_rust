@@ -48,12 +48,12 @@ fn eval_infix(
         (InfixOperator::NotEquals, left_obj, right_obj) => {
             Ok(Object::Boolean(left_obj != right_obj))
         }
-        (_, Object::Null, _) | (_, _, Object::Null) => Err(String::from(
-            "[Evaluation Error] Tried to do ariphmetic operation on null",
-        )),
-        (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => Err(String::from(
-            "[Evaluation Error] Tried to do ariphmetic operation on boolean",
-        )),
+        (_, Object::Null, _) | (_, _, Object::Null) => {
+            Err(String::from("Tried to do ariphmetic operation on null"))
+        }
+        (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => {
+            Err(String::from("Tried to do ariphmetic operation on boolean"))
+        }
         (InfixOperator::Add, Object::Integer(left_int), Object::Integer(right_int)) => {
             Ok(Object::Integer(left_int + right_int))
         }
