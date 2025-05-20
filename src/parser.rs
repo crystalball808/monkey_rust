@@ -243,6 +243,7 @@ impl<'l> Parser<'l> {
             ));
         };
 
+        // TODO: `else` block should be optional
         let Some(Token::Else) = self.lexer.next() else {
             return Err(String::from("If expression must have an \"else\" block"));
         };

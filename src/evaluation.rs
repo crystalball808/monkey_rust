@@ -30,7 +30,14 @@ fn eval_expression(expr: Expression) -> Result<Object, String> {
             eval_infix(infix_operator, *left_expr, *right_expr)
         }
         Expression::Identifier(ident) => todo!(),
-        Expression::If(expression, vec, vec1) => todo!(),
+        Expression::If(condition, consequence, alternative) => {
+            let condition = eval_expression(*condition)?;
+            if condition.is_truthy() {
+                eval_statements(consequence)
+            } else {
+                eval_statements(alternative)
+            }
+        }
         Expression::Func(vec, vec1) => todo!(),
         Expression::Call(expression, vec) => todo!(),
     }

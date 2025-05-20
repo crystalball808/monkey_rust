@@ -16,3 +16,12 @@ impl Display for Object {
         }
     }
 }
+impl Object {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Object::Integer(int) => *int > 0,
+            Object::Boolean(b) => *b,
+            Object::Null => false,
+        }
+    }
+}
