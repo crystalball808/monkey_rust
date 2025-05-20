@@ -243,23 +243,25 @@ impl<'l> Parser<'l> {
             ));
         };
 
-        // TODO: `else` block should be optional
-        let Some(Token::Else) = self.lexer.next() else {
-            return Err(String::from("If expression must have an \"else\" block"));
-        };
+        let alternative = if let Some(Token::Else) = self.lexer.peek() {
+            self.lexer.next();
 
-        let Some(Token::LBrace) = self.lexer.next() else {
-            return Err(String::from(
-                "If expression: alternative must have an opening brace",
-            ));
-        };
+            let Some(Token::LBrace) = self.lexer.next() else {
+                return Err(String::from(
+                    "If expression: alternative must have an opening brace",
+                ));
+            };
 
-        let alternative = self.parse_statements()?;
+            let alternative = self.parse_statements()?;
 
-        let Some(Token::RBrace) = self.lexer.next() else {
-            return Err(String::from(
-                "If expression: alternative must have a closing brace",
-            ));
+            let Some(Token::RBrace) = self.lexer.next() else {
+                return Err(String::from(
+                    "If expression: alternative must have a closing brace",
+                ));
+            };
+            Some(alternative)
+        } else {
+            None
         };
 
         Ok(Expression::If(
@@ -611,7 +613,7 @@ let barfoo = false;";
                 ),
                 Statement::Expression(Identifier("a")),
             ],
-            vec![Statement::Expression(Identifier("y"))],
+            vec![Statement::Expression(Identifier("y"))].into(),
         ))]);
         assert_eq!(parsed_ast, expected_ast);
     }

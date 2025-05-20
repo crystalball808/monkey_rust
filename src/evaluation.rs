@@ -35,7 +35,11 @@ fn eval_expression(expr: Expression) -> Result<Object, String> {
             if condition.is_truthy() {
                 eval_statements(consequence)
             } else {
-                eval_statements(alternative)
+                if alternative.is_some() {
+                    eval_statements(alternative.unwrap())
+                } else {
+                    Ok(Object::Null)
+                }
             }
         }
         Expression::Func(vec, vec1) => todo!(),
