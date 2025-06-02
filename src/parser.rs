@@ -20,8 +20,10 @@ impl<'l> Parser<'l> {
         left_expr: Expression<'l>,
         boosted: bool,
     ) -> Result<Expression<'l>, String> {
-        let infix_operator = InfixOperator::try_from(&self.lexer.next().expect("Should be"))
-            .expect("Should be valid infix operator");
+        let infix_operator = {
+            let tkn = self.lexer.next().ok_or("Failed to parse token")?;
+            InfixOperator::try_from(&tkn).map_err(|_| "Should be valid infix operator")?
+        };
 
         if let Expression::Infix(left_infix_operator, _, _, false) = &left_expr {
             if left_infix_operator.get_precedence() >= infix_operator.get_precedence() {

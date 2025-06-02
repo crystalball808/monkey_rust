@@ -37,8 +37,9 @@ impl InfixOperator {
     }
 }
 
+pub struct InvalidInfixOperator;
 impl TryFrom<&Token<'_>> for InfixOperator {
-    type Error = ();
+    type Error = InvalidInfixOperator;
 
     fn try_from(token: &Token<'_>) -> Result<Self, Self::Error> {
         match token {
@@ -50,7 +51,7 @@ impl TryFrom<&Token<'_>> for InfixOperator {
             Token::Minus => Ok(InfixOperator::Subtract),
             Token::Asterisk => Ok(InfixOperator::Multiply),
             Token::Slash => Ok(InfixOperator::Divide),
-            _ => Err(()),
+            _ => Err(InvalidInfixOperator),
         }
     }
 }
