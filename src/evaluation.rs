@@ -1,9 +1,11 @@
+use std::fmt::Display;
+
 use crate::{
     ast::{Expression, InfixOperator, PrefixOperator, Statement},
     object::Object,
 };
 
-pub fn eval_statements(statements: Vec<Statement>) -> Result<ReturnableObject, String> {
+pub fn eval_statements(statements: Vec<Statement>) -> Result<ReturnableObject, Error> {
     let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
@@ -16,14 +18,39 @@ pub fn eval_statements(statements: Vec<Statement>) -> Result<ReturnableObject, S
 
     Ok(result)
 }
-fn eval_expression(expr: Expression) -> Result<ReturnableObject, String> {
+
+#[derive(Debug)]
+pub enum Error {
+    InfixTypeMismatch(InfixOperator, Object, Object),
+    PrefixTypeMismatch(PrefixOperator, Object),
+}
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::InfixTypeMismatch(op, left, right) => {
+                write!(f, "Type mismatch: {} {} {}", left, op, right)
+            }
+            Error::PrefixTypeMismatch(op, obj) => {
+                write!(f, "Type mismatch: {}{}", op, obj)
+            }
+        }
+    }
+}
+impl std::error::Error for Error {}
+
+fn eval_expression(expr: Expression) -> Result<ReturnableObject, Error> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
         Expression::Prefix(PrefixOperator::Negative, expr) => match eval_expression(*expr)?.0 {
             Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
-            Object::Boolean(_) => Ok(Object::Null.into()),
-            Object::Null => Ok(Object::Null.into()),
+            obj @ Object::Boolean(_) => {
+                Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, obj))
+            }
+            Object::Null => Err(Error::PrefixTypeMismatch(
+                PrefixOperator::Negative,
+                Object::Null,
+            )),
         },
         Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr)?.0 {
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
@@ -55,20 +82,24 @@ fn eval_infix(
     infix_operator: InfixOperator,
     left_expr: Expression,
     right_expr: Expression,
-) -> Result<Object, String> {
+) -> Result<Object, Error> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr)?;
-    match (infix_operator, left_obj, right_obj) {
+    match (&infix_operator, &left_obj, &right_obj) {
         (InfixOperator::Equals, left_obj, right_obj) => Ok(Object::Boolean(left_obj == right_obj)),
         (InfixOperator::NotEquals, left_obj, right_obj) => {
             Ok(Object::Boolean(left_obj != right_obj))
         }
-        (_, Object::Null, _) | (_, _, Object::Null) => {
-            Err(String::from("Tried to do ariphmetic operation on null"))
-        }
-        (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => {
-            Err(String::from("Tried to do ariphmetic operation on boolean"))
-        }
+        (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
+            infix_operator,
+            left_obj,
+            right_obj,
+        )),
+        (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => Err(Error::InfixTypeMismatch(
+            infix_operator,
+            left_obj,
+            right_obj,
+        )),
         (InfixOperator::Add, Object::Integer(left_int), Object::Integer(right_int)) => {
             Ok(Object::Integer(left_int + right_int))
         }
@@ -97,7 +128,7 @@ impl Into<ReturnableObject> for Object {
         ReturnableObject(self, false)
     }
 }
-fn eval_statement(statement: Statement) -> Result<ReturnableObject, String> {
+fn eval_statement(statement: Statement) -> Result<ReturnableObject, Error> {
     match statement {
         Statement::Let(_, expression) => todo!(),
         Statement::Return(expr) => eval_expression(expr).map(|mut r| {

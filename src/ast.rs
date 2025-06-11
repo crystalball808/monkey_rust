@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::Token;
 
 #[derive(Debug, PartialEq)]
@@ -7,6 +9,14 @@ pub enum PrefixOperator {
     Not,
     /// e.g. `-15`
     Negative,
+}
+impl Display for PrefixOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrefixOperator::Not => write!(f, "!"),
+            PrefixOperator::Negative => write!(f, "-"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -19,6 +29,20 @@ pub enum InfixOperator {
     Divide,
     GreaterThan,
     LessThan,
+}
+impl Display for InfixOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InfixOperator::Equals => write!(f, "=="),
+            InfixOperator::NotEquals => write!(f, "!="),
+            InfixOperator::Add => write!(f, "+"),
+            InfixOperator::Subtract => write!(f, "-"),
+            InfixOperator::Multiply => write!(f, "*"),
+            InfixOperator::Divide => write!(f, "+"),
+            InfixOperator::GreaterThan => write!(f, ">"),
+            InfixOperator::LessThan => write!(f, "<"),
+        }
+    }
 }
 
 // TODO: Implement Ord for InfixOperator
