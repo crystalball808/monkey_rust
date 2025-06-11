@@ -1,15 +1,22 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     ast::{Expression, InfixOperator, PrefixOperator, Statement},
     object::Object,
 };
 
+struct Environment<'i> {
+    store: HashMap<&'i str, Object>,
+}
+
 pub fn eval_statements(statements: Vec<Statement>) -> Result<ReturnableObject, Error> {
     let mut result = ReturnableObject(Object::Null, false);
+    let mut environment = Environment {
+        store: HashMap::new(),
+    };
 
     for statement in statements {
-        let res = eval_statement(statement)?;
+        let res = eval_statement(statement, &mut environment)?;
         if res.1 {
             return Ok(res);
         }
@@ -38,31 +45,33 @@ impl Display for Error {
 }
 impl std::error::Error for Error {}
 
-fn eval_expression(expr: Expression) -> Result<ReturnableObject, Error> {
+fn eval_expression(expr: Expression, env: &mut Environment) -> Result<ReturnableObject, Error> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
-        Expression::Prefix(PrefixOperator::Negative, expr) => match eval_expression(*expr)?.0 {
-            Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
-            obj @ Object::Boolean(_) => {
-                Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, obj))
+        Expression::Prefix(PrefixOperator::Negative, expr) => {
+            match eval_expression(*expr, env)?.0 {
+                Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
+                obj @ Object::Boolean(_) => {
+                    Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, obj))
+                }
+                Object::Null => Err(Error::PrefixTypeMismatch(
+                    PrefixOperator::Negative,
+                    Object::Null,
+                )),
             }
-            Object::Null => Err(Error::PrefixTypeMismatch(
-                PrefixOperator::Negative,
-                Object::Null,
-            )),
-        },
-        Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr)?.0 {
+        }
+        Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr, env)?.0 {
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
             Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
             Object::Null => Ok(Object::Boolean(true).into()),
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
-            eval_infix(infix_operator, *left_expr, *right_expr).map(Object::into)
+            eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
         }
         Expression::Identifier(ident) => todo!(),
         Expression::If(condition, consequence, alternative) => {
-            let condition = eval_expression(*condition)?.0;
+            let condition = eval_expression(*condition, env)?.0;
             if condition.is_truthy() {
                 eval_statements(consequence)
             } else {
@@ -82,9 +91,10 @@ fn eval_infix(
     infix_operator: InfixOperator,
     left_expr: Expression,
     right_expr: Expression,
+    env: &mut Environment,
 ) -> Result<Object, Error> {
-    let ReturnableObject(left_obj, _) = eval_expression(left_expr)?;
-    let ReturnableObject(right_obj, _) = eval_expression(right_expr)?;
+    let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
+    let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
     match (&infix_operator, &left_obj, &right_obj) {
         (InfixOperator::Equals, left_obj, right_obj) => Ok(Object::Boolean(left_obj == right_obj)),
         (InfixOperator::NotEquals, left_obj, right_obj) => {
@@ -128,14 +138,14 @@ impl Into<ReturnableObject> for Object {
         ReturnableObject(self, false)
     }
 }
-fn eval_statement(statement: Statement) -> Result<ReturnableObject, Error> {
+fn eval_statement(statement: Statement, env: &mut Environment) -> Result<ReturnableObject, Error> {
     match statement {
         Statement::Let(_, expression) => todo!(),
-        Statement::Return(expr) => eval_expression(expr).map(|mut r| {
+        Statement::Return(expr) => eval_expression(expr, env).map(|mut r| {
             r.1 = true;
             r
         }),
-        Statement::Expression(expr) => eval_expression(expr),
+        Statement::Expression(expr) => eval_expression(expr, env),
     }
 }
 
