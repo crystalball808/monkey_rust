@@ -50,7 +50,7 @@ fn run_repl() -> io::Result<()> {
         let lexer = Lexer::new(&input);
         match parser::Parser::new(lexer).parse_program() {
             Ok(program) => match eval_statements(program.statements) {
-                Ok(result) => println!("{result}"),
+                Ok(result) => println!("{}", result.0),
                 Err(error) => println!("[Evaluation Error] {error}"),
             },
             Err(error) => println!("[Parser Error] {error}"),

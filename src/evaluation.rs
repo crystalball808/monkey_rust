@@ -3,42 +3,46 @@ use crate::{
     object::Object,
 };
 
-pub fn eval_statements(statements: Vec<Statement>) -> Result<Object, String> {
-    let mut result = Object::Null;
+pub fn eval_statements(statements: Vec<Statement>) -> Result<ReturnableObject, String> {
+    let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
-        result = eval_statement(statement)?;
+        let res = eval_statement(statement)?;
+        if res.1 {
+            return Ok(res);
+        }
+        result = res
     }
 
     Ok(result)
 }
-fn eval_expression(expr: Expression) -> Result<Object, String> {
+fn eval_expression(expr: Expression) -> Result<ReturnableObject, String> {
     match expr {
-        Expression::IntLiteral(integer) => Ok(Object::Integer(integer)),
-        Expression::Boolean(boolean) => Ok(Object::Boolean(boolean)),
-        Expression::Prefix(PrefixOperator::Negative, expr) => match eval_expression(*expr)? {
-            Object::Integer(integer) => Ok(Object::Integer(-integer)),
-            Object::Boolean(_) => Ok(Object::Null),
-            Object::Null => Ok(Object::Null),
+        Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
+        Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
+        Expression::Prefix(PrefixOperator::Negative, expr) => match eval_expression(*expr)?.0 {
+            Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
+            Object::Boolean(_) => Ok(Object::Null.into()),
+            Object::Null => Ok(Object::Null.into()),
         },
-        Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr)? {
-            Object::Integer(integer) => Ok(Object::Boolean(integer == 0)),
-            Object::Boolean(boolean) => Ok(Object::Boolean(!boolean)),
-            Object::Null => Ok(Object::Boolean(true)),
+        Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr)?.0 {
+            Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
+            Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
+            Object::Null => Ok(Object::Boolean(true).into()),
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
-            eval_infix(infix_operator, *left_expr, *right_expr)
+            eval_infix(infix_operator, *left_expr, *right_expr).map(Object::into)
         }
         Expression::Identifier(ident) => todo!(),
         Expression::If(condition, consequence, alternative) => {
-            let condition = eval_expression(*condition)?;
+            let condition = eval_expression(*condition)?.0;
             if condition.is_truthy() {
                 eval_statements(consequence)
             } else {
                 if alternative.is_some() {
                     eval_statements(alternative.unwrap())
                 } else {
-                    Ok(Object::Null)
+                    Ok(Object::Null.into())
                 }
             }
         }
@@ -52,8 +56,8 @@ fn eval_infix(
     left_expr: Expression,
     right_expr: Expression,
 ) -> Result<Object, String> {
-    let left_obj = eval_expression(left_expr)?;
-    let right_obj = eval_expression(right_expr)?;
+    let ReturnableObject(left_obj, _) = eval_expression(left_expr)?;
+    let ReturnableObject(right_obj, _) = eval_expression(right_expr)?;
     match (infix_operator, left_obj, right_obj) {
         (InfixOperator::Equals, left_obj, right_obj) => Ok(Object::Boolean(left_obj == right_obj)),
         (InfixOperator::NotEquals, left_obj, right_obj) => {
@@ -86,10 +90,20 @@ fn eval_infix(
     }
 }
 
-fn eval_statement(statement: Statement) -> Result<Object, String> {
+#[derive(Debug)]
+pub struct ReturnableObject(pub Object, bool);
+impl Into<ReturnableObject> for Object {
+    fn into(self) -> ReturnableObject {
+        ReturnableObject(self, false)
+    }
+}
+fn eval_statement(statement: Statement) -> Result<ReturnableObject, String> {
     match statement {
         Statement::Let(_, expression) => todo!(),
-        Statement::Return(expression) => todo!(),
+        Statement::Return(expr) => eval_expression(expr).map(|mut r| {
+            r.1 = true;
+            r
+        }),
         Statement::Expression(expr) => eval_expression(expr),
     }
 }
@@ -108,6 +122,50 @@ mod test {
             .expect("Should be parsed successfully");
         let result = eval_statements(parsed_ast.statements).expect("Should evaluate");
 
-        assert_eq!(result, Object::Integer(10));
+        assert_eq!(result.0, Object::Integer(10));
+    }
+
+    #[test]
+    fn return_statements() {
+        struct Pair {
+            input: &'static str,
+            output: Object,
+        }
+        let tests = vec![
+            Pair {
+                input: "return 10;",
+                output: Object::Integer(10),
+            },
+            Pair {
+                input: "return 10; 9;",
+                output: Object::Integer(10),
+            },
+            Pair {
+                input: "return 2 * 5; 9;",
+                output: Object::Integer(10),
+            },
+            Pair {
+                input: r"
+                if (10 > 1) {
+                    if (10 > 1) {
+                        return 10;
+                    };
+                    return 1;
+                };
+                ",
+                output: Object::Integer(10),
+            },
+        ];
+
+        for test in tests {
+            let lexer = Lexer::new(test.input);
+            let parser = Parser::new(lexer);
+            let parsed_ast = parser
+                .parse_program()
+                .expect("Should be parsed successfully");
+            let result = eval_statements(parsed_ast.statements).expect("Should evaluate");
+
+            assert_eq!(result.0, test.output, "input: {}", test.input);
+        }
     }
 }
