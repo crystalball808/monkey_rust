@@ -1,10 +1,15 @@
 use std::{
+    collections::HashMap,
     io::{self, Write},
     path::PathBuf,
 };
 
 use clap::{Parser, Subcommand};
-use monkey_rust::{Lexer, evaluation::eval_statements, parser};
+use monkey_rust::{
+    Lexer,
+    evaluation::{Environment, eval_statements},
+    parser,
+};
 
 #[derive(Parser)]
 struct Cli {
@@ -49,10 +54,15 @@ fn run_repl() -> io::Result<()> {
     while let Ok(_bytes) = reader.read_line(&mut input) {
         let lexer = Lexer::new(&input);
         match parser::Parser::new(lexer).parse_program() {
-            Ok(program) => match eval_statements(program.statements) {
-                Ok(result) => println!("{}", result.0),
-                Err(error) => println!("[Evaluation Error] {error}"),
-            },
+            Ok(program) => {
+                let mut environment = Environment {
+                    store: HashMap::new(),
+                };
+                match eval_statements(program.statements, &mut environment) {
+                    Ok(result) => println!("{}", result.0),
+                    Err(error) => println!("[Evaluation Error] {error}"),
+                }
+            }
             Err(error) => println!("[Parser Error] {error}"),
         }
 

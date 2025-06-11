@@ -5,18 +5,18 @@ use crate::{
     object::Object,
 };
 
-struct Environment<'i> {
-    store: HashMap<&'i str, Object>,
+pub struct Environment<'i> {
+    pub store: HashMap<&'i str, Object>,
 }
 
-pub fn eval_statements(statements: Vec<Statement>) -> Result<ReturnableObject, Error> {
+pub fn eval_statements(
+    statements: Vec<Statement>,
+    env: &mut Environment,
+) -> Result<ReturnableObject, Error> {
     let mut result = ReturnableObject(Object::Null, false);
-    let mut environment = Environment {
-        store: HashMap::new(),
-    };
 
     for statement in statements {
-        let res = eval_statement(statement, &mut environment)?;
+        let res = eval_statement(statement, env)?;
         if res.1 {
             return Ok(res);
         }
@@ -73,10 +73,10 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
         Expression::If(condition, consequence, alternative) => {
             let condition = eval_expression(*condition, env)?.0;
             if condition.is_truthy() {
-                eval_statements(consequence)
+                eval_statements(consequence, env)
             } else {
                 if alternative.is_some() {
-                    eval_statements(alternative.unwrap())
+                    eval_statements(alternative.unwrap(), env)
                 } else {
                     Ok(Object::Null.into())
                 }
@@ -151,6 +151,7 @@ fn eval_statement(statement: Statement, env: &mut Environment) -> Result<Returna
 
 #[cfg(test)]
 mod test {
+
     use super::*;
     use crate::{Lexer, parser::Parser};
 
@@ -161,7 +162,12 @@ mod test {
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let result = eval_statements(parsed_ast.statements).expect("Should evaluate");
+        let mut environment = Environment {
+            store: HashMap::new(),
+        };
+
+        let result =
+            eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 
         assert_eq!(result.0, Object::Integer(10));
     }
@@ -204,7 +210,11 @@ mod test {
             let parsed_ast = parser
                 .parse_program()
                 .expect("Should be parsed successfully");
-            let result = eval_statements(parsed_ast.statements).expect("Should evaluate");
+            let mut environment = Environment {
+                store: HashMap::new(),
+            };
+            let result =
+                eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 
             assert_eq!(result.0, test.output, "input: {}", test.input);
         }
