@@ -5,14 +5,22 @@ use crate::{
     object::Object,
 };
 
-pub struct Environment<'i> {
-    pub store: HashMap<&'i str, Object>,
+pub struct Environment<'ast> {
+    pub store: HashMap<&'ast str, Object>,
+}
+impl<'ast> Environment<'ast> {
+    pub fn set(&mut self, key: &'ast str, value: Object) {
+        self.store.insert(key, value);
+    }
+    pub fn get(&self, key: &'ast str) -> Option<&Object> {
+        self.store.get(key)
+    }
 }
 
-pub fn eval_statements(
-    statements: Vec<Statement>,
-    env: &mut Environment,
-) -> Result<ReturnableObject, Error> {
+pub fn eval_statements<'ast>(
+    statements: Vec<Statement<'ast>>,
+    env: &mut Environment<'ast>,
+) -> Result<ReturnableObject, Error<'ast>> {
     let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
@@ -27,11 +35,13 @@ pub fn eval_statements(
 }
 
 #[derive(Debug)]
-pub enum Error {
+#[cfg_attr(test, derive(PartialEq))]
+pub enum Error<'ast> {
     InfixTypeMismatch(InfixOperator, Object, Object),
     PrefixTypeMismatch(PrefixOperator, Object),
+    IdentifierNotFound(&'ast str),
 }
-impl Display for Error {
+impl Display for Error<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::InfixTypeMismatch(op, left, right) => {
@@ -40,12 +50,18 @@ impl Display for Error {
             Error::PrefixTypeMismatch(op, obj) => {
                 write!(f, "Type mismatch: {}{}", op, obj)
             }
+            Error::IdentifierNotFound(ident) => {
+                write!(f, "Identifier not found: {}", ident)
+            }
         }
     }
 }
-impl std::error::Error for Error {}
+impl std::error::Error for Error<'_> {}
 
-fn eval_expression(expr: Expression, env: &mut Environment) -> Result<ReturnableObject, Error> {
+fn eval_expression<'ast>(
+    expr: Expression<'ast>,
+    env: &mut Environment<'ast>,
+) -> Result<ReturnableObject, Error<'ast>> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
@@ -69,7 +85,10 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
         }
-        Expression::Identifier(ident) => todo!(),
+        Expression::Identifier(ident) => env
+            .get(ident)
+            .map(|obj| obj.clone().into())
+            .ok_or(Error::IdentifierNotFound(ident)),
         Expression::If(condition, consequence, alternative) => {
             let condition = eval_expression(*condition, env)?.0;
             if condition.is_truthy() {
@@ -87,12 +106,12 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
     }
 }
 
-fn eval_infix(
+fn eval_infix<'ast>(
     infix_operator: InfixOperator,
-    left_expr: Expression,
-    right_expr: Expression,
-    env: &mut Environment,
-) -> Result<Object, Error> {
+    left_expr: Expression<'ast>,
+    right_expr: Expression<'ast>,
+    env: &mut Environment<'ast>,
+) -> Result<Object, Error<'ast>> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
     match (&infix_operator, &left_obj, &right_obj) {
@@ -132,15 +151,27 @@ fn eval_infix(
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ReturnableObject(pub Object, bool);
 impl Into<ReturnableObject> for Object {
     fn into(self) -> ReturnableObject {
         ReturnableObject(self, false)
     }
 }
-fn eval_statement(statement: Statement, env: &mut Environment) -> Result<ReturnableObject, Error> {
+fn eval_statement<'ast>(
+    statement: Statement<'ast>,
+    env: &mut Environment<'ast>,
+) -> Result<ReturnableObject, Error<'ast>> {
     match statement {
-        Statement::Let(_, expression) => todo!(),
+        Statement::Let(identifier, expression) => {
+            let res = eval_expression(expression, env);
+            if let Ok(obj) = res {
+                env.set(identifier, obj.0);
+                Ok(Object::Null.into())
+            } else {
+                res
+            }
+        }
         Statement::Return(expr) => eval_expression(expr, env).map(|mut r| {
             r.1 = true;
             r
@@ -154,6 +185,10 @@ mod test {
 
     use super::*;
     use crate::{Lexer, parser::Parser};
+    struct Pair {
+        input: &'static str,
+        output: Object,
+    }
 
     #[test]
     fn integer() {
@@ -173,11 +208,58 @@ mod test {
     }
 
     #[test]
-    fn return_statements() {
-        struct Pair {
-            input: &'static str,
-            output: Object,
+    fn let_bindings() {
+        let tests = vec![
+            Pair {
+                input: "let a = 5; a;",
+                output: Object::Integer(5),
+            },
+            Pair {
+                input: "let a = 5 * 5; a;",
+                output: Object::Integer(25),
+            },
+            Pair {
+                input: "let a = 5; let b = a; b;",
+                output: Object::Integer(5),
+            },
+            Pair {
+                input: "let a = 5; let b = a; let c = a + b + 5; c;",
+                output: Object::Integer(15),
+            },
+        ];
+        for test in tests {
+            let lexer = Lexer::new(test.input);
+            let parser = Parser::new(lexer);
+            let parsed_ast = parser
+                .parse_program()
+                .expect("Should be parsed successfully");
+            let mut environment = Environment {
+                store: HashMap::new(),
+            };
+            let result =
+                eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
+
+            assert_eq!(result.0, test.output, "input: {}", test.input);
         }
+    }
+
+    #[test]
+    fn identifier_not_found() {
+        let lexer = Lexer::new("foobar;");
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let mut environment = Environment {
+            store: HashMap::new(),
+        };
+        let result = eval_statements(parsed_ast.statements, &mut environment);
+
+        assert_eq!(result, Result::Err(Error::IdentifierNotFound("foobar")));
+    }
+
+    #[test]
+    fn return_statements() {
         let tests = vec![
             Pair {
                 input: "return 10;",
