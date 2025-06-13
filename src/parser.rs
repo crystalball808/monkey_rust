@@ -295,9 +295,11 @@ impl<'l> Parser<'l> {
 
                     statements.push(Statement::Let(name, expr));
 
-                    let Some(Token::Semicolon) = self.lexer.next() else {
-                        return Err(String::from("Let statement without the semicolon"));
-                    };
+                    if self.lexer.peek().is_some() {
+                        let Some(Token::Semicolon) = self.lexer.next() else {
+                            return Err(String::from("Let statement without the semicolon"));
+                        };
+                    }
                 }
                 Token::Return => {
                     self.lexer.next();
