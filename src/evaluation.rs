@@ -5,12 +5,12 @@ use crate::{
     object::Object,
 };
 
-pub struct Environment<'ast> {
-    pub store: HashMap<&'ast str, Object>,
+pub struct Environment {
+    pub store: HashMap<String, Object>,
 }
-impl<'ast> Environment<'ast> {
-    pub fn set(&mut self, key: &'ast str, value: Object) {
-        self.store.insert(key, value);
+impl<'ast> Environment {
+    pub fn set(&mut self, key: impl Into<String>, value: Object) {
+        self.store.insert(key.into(), value);
     }
     pub fn get(&self, key: &'ast str) -> Option<&Object> {
         self.store.get(key)
@@ -19,7 +19,7 @@ impl<'ast> Environment<'ast> {
 
 pub fn eval_statements<'ast>(
     statements: Vec<Statement<'ast>>,
-    env: &mut Environment<'ast>,
+    env: &mut Environment,
 ) -> Result<ReturnableObject, Error<'ast>> {
     let mut result = ReturnableObject(Object::Null, false);
 
@@ -60,7 +60,7 @@ impl std::error::Error for Error<'_> {}
 
 fn eval_expression<'ast>(
     expr: Expression<'ast>,
-    env: &mut Environment<'ast>,
+    env: &mut Environment,
 ) -> Result<ReturnableObject, Error<'ast>> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
@@ -110,7 +110,7 @@ fn eval_infix<'ast>(
     infix_operator: InfixOperator,
     left_expr: Expression<'ast>,
     right_expr: Expression<'ast>,
-    env: &mut Environment<'ast>,
+    env: &mut Environment,
 ) -> Result<Object, Error<'ast>> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
@@ -160,7 +160,7 @@ impl Into<ReturnableObject> for Object {
 }
 fn eval_statement<'ast>(
     statement: Statement<'ast>,
-    env: &mut Environment<'ast>,
+    env: &mut Environment,
 ) -> Result<ReturnableObject, Error<'ast>> {
     match statement {
         Statement::Let(identifier, expression) => {

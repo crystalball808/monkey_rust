@@ -51,18 +51,16 @@ fn run_repl() -> io::Result<()> {
     print!("Welcome to the Monkey REPL!\n>> ");
     io::stdout().flush()?;
     let mut input = String::new();
+    let mut environment = Environment {
+        store: HashMap::new(),
+    };
     while let Ok(_bytes) = reader.read_line(&mut input) {
         let lexer = Lexer::new(&input);
         match parser::Parser::new(lexer).parse_program() {
-            Ok(program) => {
-                let mut environment = Environment {
-                    store: HashMap::new(),
-                };
-                match eval_statements(program.statements, &mut environment) {
-                    Ok(result) => println!("{}", result.0),
-                    Err(error) => println!("[Evaluation Error] {error}"),
-                }
-            }
+            Ok(program) => match eval_statements(program.statements, &mut environment) {
+                Ok(result) => println!("{}", result.0),
+                Err(error) => println!("[Evaluation Error] {error}"),
+            },
             Err(error) => println!("[Parser Error] {error}"),
         }
 
