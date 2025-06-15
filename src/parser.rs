@@ -616,7 +616,7 @@ let barfoo = false;";
                 ),
                 Statement::Expression(Identifier("a".to_owned())),
             ],
-            vec![Statement::Expression(Identifier("y"))].into(),
+            vec![Statement::Expression(Identifier("y".to_owned()))].into(),
         ))]);
         assert_eq!(parsed_ast, expected_ast);
     }
@@ -630,7 +630,7 @@ let barfoo = false;";
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![Statement::Expression(Call(
-            Box::new(Identifier("add")),
+            Box::new(Identifier("add".to_owned())),
             vec![
                 IntLiteral(1),
                 Infix(
@@ -662,19 +662,19 @@ let barfoo = false;";
             InfixOperator::Subtract,
             Box::new(Infix(
                 InfixOperator::Add,
-                Box::new(Identifier("a")),
+                Box::new(Identifier("a".to_owned())),
                 Box::new(Call(
-                    Box::new(Identifier("add")),
+                    Box::new(Identifier("add".to_owned())),
                     vec![Infix(
                         InfixOperator::Multiply,
-                        Box::new(Identifier("b")),
-                        Box::new(Identifier("c")),
+                        Box::new(Identifier("b".to_owned())),
+                        Box::new(Identifier("c".to_owned())),
                         false,
                     )],
                 )),
                 false,
             )),
-            Box::new(Identifier("d")),
+            Box::new(Identifier("d".to_owned())),
             false,
         ))]);
         assert_eq!(parsed_ast, expected_ast);

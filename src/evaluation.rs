@@ -5,10 +5,21 @@ use crate::{
     object::Object,
 };
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Environment {
     pub store: HashMap<String, Object>,
 }
+impl PartialOrd for Environment {
+    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        None
+    }
+}
 impl Environment {
+    pub fn new() -> Self {
+        Self {
+            store: HashMap::new(),
+        }
+    }
     pub fn set(&mut self, key: impl Into<String>, value: Object) {
         self.store.insert(key.into(), value);
     }
@@ -65,19 +76,16 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
         Expression::Prefix(PrefixOperator::Negative, expr) => {
             match eval_expression(*expr, env)?.0 {
                 Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
-                obj @ Object::Boolean(_) => {
-                    Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, obj))
-                }
-                Object::Null => Err(Error::PrefixTypeMismatch(
-                    PrefixOperator::Negative,
-                    Object::Null,
-                )),
+                other => Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, other)),
             }
         }
         Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr, env)?.0 {
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
             Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
             Object::Null => Ok(Object::Boolean(true).into()),
+            obj @ Object::Function { .. } => {
+                Err(Error::PrefixTypeMismatch(PrefixOperator::Not, obj))
+            }
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
@@ -98,12 +106,17 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
                 }
             }
         }
-        Expression::Func(vec, vec1) => todo!(),
+        Expression::Func(arguments, body) => Ok(Object::Function {
+            arguments,
+            body,
+            env: Environment::new(),
+        }
+        .into()),
         Expression::Call(expression, vec) => todo!(),
     }
 }
 
-fn eval_infix<'ast>(
+fn eval_infix(
     infix_operator: InfixOperator,
     left_expr: Expression,
     right_expr: Expression,
@@ -116,6 +129,9 @@ fn eval_infix<'ast>(
         (InfixOperator::NotEquals, left_obj, right_obj) => {
             Ok(Object::Boolean(left_obj != right_obj))
         }
+        (_, Object::Function { .. }, _) | (_, _, Object::Function { .. }) => Err(
+            Error::InfixTypeMismatch(infix_operator, left_obj, right_obj),
+        ),
         (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
             infix_operator,
             left_obj,
@@ -252,6 +268,34 @@ mod test {
         assert_eq!(
             result,
             Result::Err(Error::IdentifierNotFound("foobar".to_owned()))
+        );
+    }
+
+    #[test]
+    fn function_expression() {
+        let lexer = Lexer::new("fn(x) { x + 2; }");
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let mut environment = Environment {
+            store: HashMap::new(),
+        };
+        let result =
+            eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
+
+        assert_eq!(
+            result.0,
+            Object::Function {
+                arguments: vec![String::from("x")],
+                body: vec![Statement::Expression(Expression::Infix(
+                    InfixOperator::Add,
+                    Box::new(Expression::Identifier(String::from("x"))),
+                    Box::new(Expression::IntLiteral(2)),
+                    false
+                ))],
+                env: Environment::new()
+            }
         );
     }
 
