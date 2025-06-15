@@ -83,7 +83,7 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
         }
         Expression::Identifier(ident) => env
-            .get(ident)
+            .get(&ident)
             .map(|obj| obj.clone().into())
             .ok_or(Error::IdentifierNotFound(ident)),
         Expression::If(condition, consequence, alternative) => {
@@ -155,10 +155,7 @@ impl Into<ReturnableObject> for Object {
         ReturnableObject(self, false)
     }
 }
-fn eval_statement<'ast>(
-    statement: Statement<'ast>,
-    env: &mut Environment,
-) -> Result<ReturnableObject, Error<'ast>> {
+fn eval_statement(statement: Statement, env: &mut Environment) -> Result<ReturnableObject, Error> {
     match statement {
         Statement::Let(identifier, expression) => {
             let res = eval_expression(expression, env);
@@ -252,7 +249,10 @@ mod test {
         };
         let result = eval_statements(parsed_ast.statements, &mut environment);
 
-        assert_eq!(result, Result::Err(Error::IdentifierNotFound("foobar")));
+        assert_eq!(
+            result,
+            Result::Err(Error::IdentifierNotFound("foobar".to_owned()))
+        );
     }
 
     #[test]
