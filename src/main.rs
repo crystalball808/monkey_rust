@@ -47,6 +47,7 @@ fn main() {
 
 fn run_repl() -> io::Result<()> {
     let reader = io::stdin();
+    let mut inputs = Vec::new();
 
     print!("Welcome to the Monkey REPL!\n>> ");
     io::stdout().flush()?;
@@ -55,7 +56,12 @@ fn run_repl() -> io::Result<()> {
         store: HashMap::new(),
     };
     while let Ok(_bytes) = reader.read_line(&mut input) {
-        let lexer = Lexer::new(&input);
+        inputs.push(input.clone());
+        input.clear();
+
+        let saved_input = inputs.last().unwrap();
+
+        let lexer = Lexer::new(saved_input);
         match parser::Parser::new(lexer).parse_program() {
             Ok(program) => match eval_statements(program.statements, &mut environment) {
                 Ok(result) => println!("{}", result.0),
@@ -64,7 +70,6 @@ fn run_repl() -> io::Result<()> {
             Err(error) => println!("[Parser Error] {error}"),
         }
 
-        input.clear();
         print!(">> ");
         io::stdout().flush()?;
     }

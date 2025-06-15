@@ -5,22 +5,22 @@ use crate::{
     object::Object,
 };
 
-pub struct Environment {
-    pub store: HashMap<String, Object>,
+pub struct Environment<'ast> {
+    pub store: HashMap<&'ast str, Object<'ast>>,
 }
-impl<'ast> Environment {
-    pub fn set(&mut self, key: impl Into<String>, value: Object) {
-        self.store.insert(key.into(), value);
+impl<'ast> Environment<'ast> {
+    pub fn set(&mut self, key: &'ast str, value: Object<'ast>) {
+        self.store.insert(key, value);
     }
-    pub fn get(&self, key: &'ast str) -> Option<&Object> {
-        self.store.get(key)
+    pub fn get(&self, key: &'ast str) -> Option<Object<'ast>> {
+        self.store.get(key).cloned()
     }
 }
 
 pub fn eval_statements<'ast>(
     statements: Vec<Statement<'ast>>,
-    env: &mut Environment,
-) -> Result<ReturnableObject, Error<'ast>> {
+    env: &mut Environment<'ast>,
+) -> Result<ReturnableObject<'ast>, Error<'ast>> {
     let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
@@ -37,8 +37,8 @@ pub fn eval_statements<'ast>(
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum Error<'ast> {
-    InfixTypeMismatch(InfixOperator, Object, Object),
-    PrefixTypeMismatch(PrefixOperator, Object),
+    InfixTypeMismatch(InfixOperator, Object<'ast>, Object<'ast>),
+    PrefixTypeMismatch(PrefixOperator, Object<'ast>),
     IdentifierNotFound(&'ast str),
 }
 impl Display for Error<'_> {
@@ -60,8 +60,8 @@ impl std::error::Error for Error<'_> {}
 
 fn eval_expression<'ast>(
     expr: Expression<'ast>,
-    env: &mut Environment,
-) -> Result<ReturnableObject, Error<'ast>> {
+    env: &mut Environment<'ast>,
+) -> Result<ReturnableObject<'ast>, Error<'ast>> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
@@ -75,22 +75,34 @@ fn eval_expression<'ast>(
                     PrefixOperator::Negative,
                     Object::Null,
                 )),
+                Object::Function { arguments } => todo!(),
             }
         }
         Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr, env)?.0 {
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
             Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
             Object::Null => Ok(Object::Boolean(true).into()),
+            Object::Function { arguments } => todo!(),
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
         }
+        // Expression::Identifier(ident) => {
+        //     let foo = env.get(ident);
+        //     let foo = foo.map(|obj| ReturnableObject(obj.clone(), false)).unwrap();
+        //
+        // Ok(ReturnableObject(Object::Null, false))
+        // Ok(foo)
+
+        // foo.ok_or(Error::IdentifierNotFound(ident))
+        // Err(Error::IdentifierNotFound(ident))
+        // }
         Expression::Identifier(ident) => env
-            .get(ident)
-            .map(|obj| obj.clone().into())
+            .get(&ident)
+            .map(|obj| ReturnableObject(obj.clone(), false))
             .ok_or(Error::IdentifierNotFound(ident)),
         Expression::If(condition, consequence, alternative) => {
-            let condition = eval_expression(*condition, env)?.0;
+            let condition = { eval_expression(*condition, env)?.0 };
             if condition.is_truthy() {
                 eval_statements(consequence, env)
             } else {
@@ -110,8 +122,8 @@ fn eval_infix<'ast>(
     infix_operator: InfixOperator,
     left_expr: Expression<'ast>,
     right_expr: Expression<'ast>,
-    env: &mut Environment,
-) -> Result<Object, Error<'ast>> {
+    env: &mut Environment<'ast>,
+) -> Result<Object<'ast>, Error<'ast>> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
     match (&infix_operator, &left_obj, &right_obj) {
@@ -119,6 +131,9 @@ fn eval_infix<'ast>(
         (InfixOperator::NotEquals, left_obj, right_obj) => {
             Ok(Object::Boolean(left_obj != right_obj))
         }
+        (_, Object::Function { .. }, _) | (_, _, Object::Function { .. }) => Err(
+            Error::InfixTypeMismatch(infix_operator, left_obj, right_obj),
+        ),
         (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
             infix_operator,
             left_obj,
@@ -152,16 +167,16 @@ fn eval_infix<'ast>(
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct ReturnableObject(pub Object, bool);
-impl Into<ReturnableObject> for Object {
-    fn into(self) -> ReturnableObject {
+pub struct ReturnableObject<'ast>(pub Object<'ast>, bool);
+impl<'ast> Into<ReturnableObject<'ast>> for Object<'ast> {
+    fn into(self) -> ReturnableObject<'ast> {
         ReturnableObject(self, false)
     }
 }
 fn eval_statement<'ast>(
     statement: Statement<'ast>,
-    env: &mut Environment,
-) -> Result<ReturnableObject, Error<'ast>> {
+    env: &mut Environment<'ast>,
+) -> Result<ReturnableObject<'ast>, Error<'ast>> {
     match statement {
         Statement::Let(identifier, expression) => {
             let res = eval_expression(expression, env);
@@ -187,7 +202,7 @@ mod test {
     use crate::{Lexer, parser::Parser};
     struct Pair {
         input: &'static str,
-        output: Object,
+        output: Object<'static>,
     }
 
     #[test]
