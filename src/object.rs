@@ -4,6 +4,10 @@ use std::fmt::Display;
 pub enum Object {
     Integer(i32),
     Boolean(bool),
+    // Function {
+    //     arguments: Vec<String>,
+    //     body: Vec<Statement>,
+    // }
     Null,
 }
 

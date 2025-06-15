@@ -81,40 +81,31 @@ impl TryFrom<&Token<'_>> for InfixOperator {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Expression<'i> {
+pub enum Expression {
     IntLiteral(i32),
     Boolean(bool),
-    Identifier(&'i str),
-    Prefix(PrefixOperator, Box<Expression<'i>>),
-    Infix(
-        InfixOperator,
-        Box<Expression<'i>>,
-        Box<Expression<'i>>,
-        bool,
-    ),
-    If(
-        Box<Expression<'i>>,
-        Vec<Statement<'i>>,
-        Option<Vec<Statement<'i>>>,
-    ),
-    Func(Vec<&'i str>, Vec<Statement<'i>>),
-    Call(Box<Expression<'i>>, Vec<Expression<'i>>),
+    Identifier(String),
+    Prefix(PrefixOperator, Box<Expression>),
+    Infix(InfixOperator, Box<Expression>, Box<Expression>, bool),
+    If(Box<Expression>, Vec<Statement>, Option<Vec<Statement>>),
+    Func(Vec<String>, Vec<Statement>),
+    Call(Box<Expression>, Vec<Expression>),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Statement<'i> {
-    Let(&'i str, Expression<'i>),
-    Return(Expression<'i>),
-    Expression(Expression<'i>),
+pub enum Statement {
+    Let(String, Expression),
+    Return(Expression),
+    Expression(Expression),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Program<'i> {
-    pub statements: Vec<Statement<'i>>,
+pub struct Program {
+    pub statements: Vec<Statement>,
 }
 
-impl<'i> Program<'i> {
-    pub fn new(statements: Vec<Statement<'i>>) -> Self {
+impl Program {
+    pub fn new(statements: Vec<Statement>) -> Self {
         Self { statements }
     }
 }

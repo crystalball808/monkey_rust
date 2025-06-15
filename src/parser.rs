@@ -15,11 +15,7 @@ impl<'l> Parser<'l> {
             lexer: lexer.peekable(),
         }
     }
-    fn infix_parse(
-        &mut self,
-        left_expr: Expression<'l>,
-        boosted: bool,
-    ) -> Result<Expression<'l>, String> {
+    fn infix_parse(&mut self, left_expr: Expression, boosted: bool) -> Result<Expression, String> {
         let infix_operator = {
             let tkn = self.lexer.next().ok_or("Failed to parse token")?;
             InfixOperator::try_from(&tkn).map_err(|_| "Should be valid infix operator")?
@@ -59,13 +55,13 @@ impl<'l> Parser<'l> {
             boosted,
         ))
     }
-    fn parse_single_expression(&mut self) -> Result<Expression<'l>, String> {
+    fn parse_single_expression(&mut self) -> Result<Expression, String> {
         let expr: Expression = match self.lexer.next().ok_or(String::from("No token to parse"))? {
             Token::Int(integer) => Expression::IntLiteral(integer),
             Token::False => Expression::Boolean(false),
             Token::True => Expression::Boolean(true),
             Token::Identifier(identifier) => {
-                let expr = Expression::Identifier(identifier);
+                let expr = Expression::Identifier(identifier.to_owned());
                 if let Some(Token::LParen) = self.lexer.peek() {
                     self.parse_call(expr)?
                 } else {
@@ -99,7 +95,7 @@ impl<'l> Parser<'l> {
 
         Ok(expr)
     }
-    fn parse_function_literal(&mut self) -> Result<Expression<'l>, String> {
+    fn parse_function_literal(&mut self) -> Result<Expression, String> {
         let mut param_names = Vec::new();
 
         // parse function parameters
@@ -112,7 +108,7 @@ impl<'l> Parser<'l> {
         } else {
             while let Some(token) = self.lexer.next() {
                 if let Token::Identifier(param_name) = token {
-                    param_names.push(param_name)
+                    param_names.push(param_name.to_owned())
                 } else {
                     return Err(format!(
                         "Invalid function parameter syntax: parameter expected, got {:?}",
@@ -156,7 +152,7 @@ impl<'l> Parser<'l> {
 
         Ok(Expression::Func(param_names, body))
     }
-    fn parse_grouped_expression(&mut self) -> Result<Expression<'l>, String> {
+    fn parse_grouped_expression(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_single_expression()?;
         while let Some(peekeed_token) = self.lexer.peek() {
             if InfixOperator::try_from(peekeed_token).is_ok() {
@@ -174,7 +170,7 @@ impl<'l> Parser<'l> {
         }
         Ok(expr)
     }
-    fn parse_call(&mut self, func_expr: Expression<'l>) -> Result<Expression<'l>, String> {
+    fn parse_call(&mut self, func_expr: Expression) -> Result<Expression, String> {
         assert!(matches!(
             func_expr,
             Expression::Func(_, _) | Expression::Identifier(_)
@@ -207,7 +203,7 @@ impl<'l> Parser<'l> {
         Ok(Expression::Call(Box::new(func_expr), arguments))
     }
 
-    fn parse_expression(&mut self) -> Result<Expression<'l>, String> {
+    fn parse_expression(&mut self) -> Result<Expression, String> {
         let mut expr = self.parse_single_expression()?;
         while let Some(peekeed_token) = self.lexer.peek() {
             if InfixOperator::try_from(peekeed_token).is_ok() {
@@ -219,7 +215,7 @@ impl<'l> Parser<'l> {
 
         Ok(expr)
     }
-    fn parse_if_expression(&mut self) -> Result<Expression<'l>, String> {
+    fn parse_if_expression(&mut self) -> Result<Expression, String> {
         let Some(Token::LParen) = self.lexer.next() else {
             return Err(String::from(
                 "If expression must have an opening parenthesis",
@@ -272,7 +268,7 @@ impl<'l> Parser<'l> {
             alternative,
         ))
     }
-    fn parse_statements(&mut self) -> Result<Vec<Statement<'l>>, String> {
+    fn parse_statements(&mut self) -> Result<Vec<Statement>, String> {
         let mut statements: Vec<Statement> = Vec::new();
         while let Some(token) = self.lexer.peek() {
             match token {
@@ -293,7 +289,7 @@ impl<'l> Parser<'l> {
 
                     let expr = self.parse_expression()?;
 
-                    statements.push(Statement::Let(name, expr));
+                    statements.push(Statement::Let(name.to_owned(), expr));
 
                     if self.lexer.peek().is_some() {
                         let Some(Token::Semicolon) = self.lexer.next() else {
@@ -337,7 +333,7 @@ impl<'l> Parser<'l> {
 
         Ok(statements)
     }
-    pub fn parse_program(mut self) -> Result<Program<'l>, String> {
+    pub fn parse_program(mut self) -> Result<Program, String> {
         Ok(Program::new(self.parse_statements()?))
     }
 }
@@ -360,9 +356,9 @@ let foobar = 838383;";
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Let("x", IntLiteral(5)),
-            Statement::Let("y", IntLiteral(10)),
-            Statement::Let("foobar", IntLiteral(838383)),
+            Statement::Let("x".to_owned(), IntLiteral(5)),
+            Statement::Let("y".to_owned(), IntLiteral(10)),
+            Statement::Let("foobar".to_owned(), IntLiteral(838383)),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -383,7 +379,7 @@ return foobar;
         let expected_ast = Program::new(vec![
             Statement::Return(IntLiteral(5)),
             Statement::Return(IntLiteral(993322)),
-            Statement::Return(Identifier("foobar")),
+            Statement::Return(Identifier("foobar".to_owned())),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -402,7 +398,7 @@ foobar;
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![
-            Statement::Expression(Identifier("foobar")),
+            Statement::Expression(Identifier("foobar".to_owned())),
             Statement::Expression(IntLiteral(5)),
         ]);
 
@@ -426,10 +422,13 @@ foobar;
             Statement::Expression(Prefix(PrefixOperator::Negative, Box::new(IntLiteral(5)))),
             Statement::Expression(Prefix(
                 PrefixOperator::Negative,
-                Box::new(Identifier("foobar")),
+                Box::new(Identifier("foobar".to_owned())),
             )),
             Statement::Expression(Prefix(PrefixOperator::Not, Box::new(IntLiteral(10)))),
-            Statement::Expression(Prefix(PrefixOperator::Not, Box::new(Identifier("x")))),
+            Statement::Expression(Prefix(
+                PrefixOperator::Not,
+                Box::new(Identifier("x".to_owned())),
+            )),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -560,8 +559,8 @@ let barfoo = false;";
         let expected_ast = Program::new(vec![
             Statement::Expression(Boolean(true)),
             Statement::Expression(Boolean(false)),
-            Statement::Let("foobar", Boolean(true)),
-            Statement::Let("barfoo", Boolean(false)),
+            Statement::Let("foobar".to_owned(), Boolean(true)),
+            Statement::Let("barfoo".to_owned(), Boolean(false)),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);
@@ -577,11 +576,11 @@ let barfoo = false;";
             .expect("Should be parsed successfully");
 
         let expected_ast = Program::new(vec![Statement::Expression(Func(
-            vec!["x", "y"],
+            vec!["x".to_owned(), "y".to_owned()],
             vec![Statement::Return(Infix(
                 InfixOperator::Add,
-                Box::new(Identifier("x")),
-                Box::new(Identifier("y")),
+                Box::new(Identifier("x".to_owned())),
+                Box::new(Identifier("y".to_owned())),
                 false,
             ))],
         ))]);
@@ -601,21 +600,21 @@ let barfoo = false;";
         let expected_ast = Program::new(vec![Statement::Expression(If(
             Box::new(Infix(
                 InfixOperator::LessThan,
-                Box::new(Identifier("x")),
-                Box::new(Identifier("y")),
+                Box::new(Identifier("x".to_owned())),
+                Box::new(Identifier("y".to_owned())),
                 false,
             )),
             vec![
                 Statement::Let(
-                    "a",
+                    "a".to_owned(),
                     Infix(
                         InfixOperator::Subtract,
-                        Box::new(Identifier("x")),
+                        Box::new(Identifier("x".to_owned())),
                         Box::new(IntLiteral(2)),
                         false,
                     ),
                 ),
-                Statement::Expression(Identifier("a")),
+                Statement::Expression(Identifier("a".to_owned())),
             ],
             vec![Statement::Expression(Identifier("y"))].into(),
         ))]);

@@ -8,19 +8,19 @@ use crate::{
 pub struct Environment {
     pub store: HashMap<String, Object>,
 }
-impl<'ast> Environment {
+impl Environment {
     pub fn set(&mut self, key: impl Into<String>, value: Object) {
         self.store.insert(key.into(), value);
     }
-    pub fn get(&self, key: &'ast str) -> Option<&Object> {
+    pub fn get(&self, key: &str) -> Option<&Object> {
         self.store.get(key)
     }
 }
 
-pub fn eval_statements<'ast>(
-    statements: Vec<Statement<'ast>>,
+pub fn eval_statements(
+    statements: Vec<Statement>,
     env: &mut Environment,
-) -> Result<ReturnableObject, Error<'ast>> {
+) -> Result<ReturnableObject, Error> {
     let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
@@ -36,12 +36,12 @@ pub fn eval_statements<'ast>(
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub enum Error<'ast> {
+pub enum Error {
     InfixTypeMismatch(InfixOperator, Object, Object),
     PrefixTypeMismatch(PrefixOperator, Object),
-    IdentifierNotFound(&'ast str),
+    IdentifierNotFound(String),
 }
-impl Display for Error<'_> {
+impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::InfixTypeMismatch(op, left, right) => {
@@ -56,12 +56,9 @@ impl Display for Error<'_> {
         }
     }
 }
-impl std::error::Error for Error<'_> {}
+impl std::error::Error for Error {}
 
-fn eval_expression<'ast>(
-    expr: Expression<'ast>,
-    env: &mut Environment,
-) -> Result<ReturnableObject, Error<'ast>> {
+fn eval_expression(expr: Expression, env: &mut Environment) -> Result<ReturnableObject, Error> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
@@ -108,10 +105,10 @@ fn eval_expression<'ast>(
 
 fn eval_infix<'ast>(
     infix_operator: InfixOperator,
-    left_expr: Expression<'ast>,
-    right_expr: Expression<'ast>,
+    left_expr: Expression,
+    right_expr: Expression,
     env: &mut Environment,
-) -> Result<Object, Error<'ast>> {
+) -> Result<Object, Error> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
     match (&infix_operator, &left_obj, &right_obj) {
