@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{ast::Statement, evaluation::Environment};
+use crate::ast::Statement;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Object {
@@ -9,7 +9,7 @@ pub enum Object {
     Function {
         arguments: Vec<String>,
         body: Vec<Statement>,
-        env: Environment,
+        // env: Environment,
     },
     Null,
 }
@@ -20,11 +20,7 @@ impl Display for Object {
             Object::Integer(integer) => write!(f, "{}", integer),
             Object::Boolean(boolean) => write!(f, "{}", boolean),
             Object::Null => write!(f, "null"),
-            Object::Function {
-                arguments,
-                body,
-                env: _,
-            } => write!(
+            Object::Function { arguments, body } => write!(
                 f,
                 "function({} argumesnts) {{ {} statements }}",
                 arguments.len(),

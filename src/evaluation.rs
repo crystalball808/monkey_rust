@@ -6,25 +6,38 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Environment {
+pub struct Environment<'o> {
     pub store: HashMap<String, Object>,
+    outer: Option<&'o Environment<'o>>,
 }
-impl PartialOrd for Environment {
+impl<'o> PartialOrd for Environment<'o> {
     fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
         None
     }
 }
-impl Environment {
+impl<'o> Environment<'o> {
     pub fn new() -> Self {
         Self {
             store: HashMap::new(),
+            outer: None,
+        }
+    }
+    pub fn with_outer(outer: &'o Environment) -> Self {
+        Self {
+            store: HashMap::new(),
+            outer: Some(outer),
         }
     }
     pub fn set(&mut self, key: impl Into<String>, value: Object) {
         self.store.insert(key.into(), value);
     }
     pub fn get(&self, key: &str) -> Option<&Object> {
-        self.store.get(key)
+        let maybe_val = self.store.get(key);
+        if maybe_val.is_none() && self.outer.is_some() {
+            self.outer.unwrap().get(key)
+        } else {
+            maybe_val
+        }
     }
 }
 
@@ -51,6 +64,7 @@ pub enum Error {
     InfixTypeMismatch(InfixOperator, Object, Object),
     PrefixTypeMismatch(PrefixOperator, Object),
     IdentifierNotFound(String),
+    NotCallable(Object),
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -64,12 +78,15 @@ impl Display for Error {
             Error::IdentifierNotFound(ident) => {
                 write!(f, "Identifier not found: {}", ident)
             }
+            Error::NotCallable(obj) => {
+                write!(f, "Not callable: {}", obj)
+            }
         }
     }
 }
 impl std::error::Error for Error {}
 
-fn eval_expression(expr: Expression, env: &mut Environment) -> Result<ReturnableObject, Error> {
+fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObject, Error> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
@@ -97,22 +114,28 @@ fn eval_expression(expr: Expression, env: &mut Environment) -> Result<Returnable
         Expression::If(condition, consequence, alternative) => {
             let condition = eval_expression(*condition, env)?.0;
             if condition.is_truthy() {
-                eval_statements(consequence, env)
+                eval_statements(consequence, &mut Environment::with_outer(env))
             } else {
                 if alternative.is_some() {
-                    eval_statements(alternative.unwrap(), env)
+                    eval_statements(alternative.unwrap(), &mut Environment::with_outer(env))
                 } else {
                     Ok(Object::Null.into())
                 }
             }
         }
-        Expression::Func(arguments, body) => Ok(Object::Function {
-            arguments,
-            body,
-            env: Environment::new(),
+        Expression::Func(arguments, body) => Ok(Object::Function { arguments, body }.into()),
+        Expression::Call(expr, passed_values) => {
+            let function = eval_expression(*expr, env)?.0;
+            let Object::Function { arguments, body } = function else {
+                return Err(Error::NotCallable(function));
+            };
+            let mut func_env = Environment::with_outer(env);
+            for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
+                func_env.set(arg_name, eval_expression(expr, env)?.0)
+            }
+
+            eval_statements(body, &mut func_env)
         }
-        .into()),
-        Expression::Call(expression, vec) => todo!(),
     }
 }
 
@@ -120,7 +143,7 @@ fn eval_infix(
     infix_operator: InfixOperator,
     left_expr: Expression,
     right_expr: Expression,
-    env: &mut Environment,
+    env: &Environment,
 ) -> Result<Object, Error> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
@@ -207,9 +230,7 @@ mod test {
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let mut environment = Environment {
-            store: HashMap::new(),
-        };
+        let mut environment = Environment::new();
 
         let result =
             eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
@@ -243,9 +264,7 @@ mod test {
             let parsed_ast = parser
                 .parse_program()
                 .expect("Should be parsed successfully");
-            let mut environment = Environment {
-                store: HashMap::new(),
-            };
+            let mut environment = Environment::new();
             let result =
                 eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 
@@ -260,9 +279,7 @@ mod test {
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let mut environment = Environment {
-            store: HashMap::new(),
-        };
+        let mut environment = Environment::new();
         let result = eval_statements(parsed_ast.statements, &mut environment);
 
         assert_eq!(
@@ -278,9 +295,7 @@ mod test {
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let mut environment = Environment {
-            store: HashMap::new(),
-        };
+        let mut environment = Environment::new();
         let result =
             eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 
@@ -294,7 +309,6 @@ mod test {
                     Box::new(Expression::IntLiteral(2)),
                     false
                 ))],
-                env: Environment::new()
             }
         );
     }
@@ -333,9 +347,7 @@ mod test {
             let parsed_ast = parser
                 .parse_program()
                 .expect("Should be parsed successfully");
-            let mut environment = Environment {
-                store: HashMap::new(),
-            };
+            let mut environment = Environment::new();
             let result =
                 eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 

@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     io::{self, Write},
     path::PathBuf,
 };
@@ -51,9 +50,7 @@ fn run_repl() -> io::Result<()> {
     print!("Welcome to the Monkey REPL!\n>> ");
     io::stdout().flush()?;
     let mut input = String::new();
-    let mut environment = Environment {
-        store: HashMap::new(),
-    };
+    let mut environment = Environment::new();
     while let Ok(_bytes) = reader.read_line(&mut input) {
         let lexer = Lexer::new(&input);
         match parser::Parser::new(lexer).parse_program() {
