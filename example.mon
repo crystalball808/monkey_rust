@@ -1,0 +1,7 @@
+let one = 1;
+let sub_one = fn(n) {
+    n - one
+};
+
+sub_one(89)
+
