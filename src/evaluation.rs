@@ -7,8 +7,21 @@ use crate::{
 
 pub struct Environment<'ast> {
     pub store: HashMap<&'ast str, Object<'ast>>,
+    outer: Option<&'ast Environment<'ast>>,
 }
 impl<'ast> Environment<'ast> {
+    pub fn new() -> Self {
+        Self {
+            store: HashMap::new(),
+            outer: None,
+        }
+    }
+    pub fn with_outer(outer: &'ast Environment) -> Self {
+        Self {
+            store: HashMap::new(),
+            outer: Some(outer),
+        }
+    }
     pub fn set(&mut self, key: &'ast str, value: Object<'ast>) {
         self.store.insert(key, value);
     }
@@ -17,9 +30,9 @@ impl<'ast> Environment<'ast> {
     }
 }
 
-pub fn eval_statements<'ast>(
+pub fn eval_statements<'ast, 'env>(
     statements: Vec<Statement<'ast>>,
-    env: &mut Environment<'ast>,
+    env: &'env mut Environment<'ast>,
 ) -> Result<ReturnableObject<'ast>, Error<'ast>> {
     let mut result = ReturnableObject(Object::Null, false);
 
@@ -58,10 +71,13 @@ impl Display for Error<'_> {
 }
 impl std::error::Error for Error<'_> {}
 
-fn eval_expression<'ast>(
+fn eval_expression<'ast, 'env>(
     expr: Expression<'ast>,
-    env: &mut Environment<'ast>,
-) -> Result<ReturnableObject<'ast>, Error<'ast>> {
+    env: &'env Environment<'ast>,
+) -> Result<ReturnableObject<'ast>, Error<'ast>>
+where
+    'env: 'ast,
+{
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
@@ -104,10 +120,10 @@ fn eval_expression<'ast>(
         Expression::If(condition, consequence, alternative) => {
             let condition = { eval_expression(*condition, env)?.0 };
             if condition.is_truthy() {
-                eval_statements(consequence, env)
+                eval_statements(consequence, &mut Environment::with_outer(env))
             } else {
                 if alternative.is_some() {
-                    eval_statements(alternative.unwrap(), env)
+                    eval_statements(alternative.unwrap(), &mut Environment::with_outer(env))
                 } else {
                     Ok(Object::Null.into())
                 }
@@ -118,12 +134,15 @@ fn eval_expression<'ast>(
     }
 }
 
-fn eval_infix<'ast>(
+fn eval_infix<'ast, 'env>(
     infix_operator: InfixOperator,
     left_expr: Expression<'ast>,
     right_expr: Expression<'ast>,
-    env: &mut Environment<'ast>,
-) -> Result<Object<'ast>, Error<'ast>> {
+    env: &'env Environment<'ast>,
+) -> Result<Object<'ast>, Error<'ast>>
+where
+    'env: 'ast,
+{
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env)?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env)?;
     match (&infix_operator, &left_obj, &right_obj) {
@@ -173,10 +192,13 @@ impl<'ast> Into<ReturnableObject<'ast>> for Object<'ast> {
         ReturnableObject(self, false)
     }
 }
-fn eval_statement<'ast>(
+fn eval_statement<'ast, 'env>(
     statement: Statement<'ast>,
-    env: &mut Environment<'ast>,
-) -> Result<ReturnableObject<'ast>, Error<'ast>> {
+    env: &'env mut Environment<'ast>,
+) -> Result<ReturnableObject<'ast>, Error<'ast>>
+where
+    'env: 'ast,
+{
     match statement {
         Statement::Let(identifier, expression) => {
             let res = eval_expression(expression, env);
@@ -212,9 +234,7 @@ mod test {
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let mut environment = Environment {
-            store: HashMap::new(),
-        };
+        let mut environment = Environment::new();
 
         let result =
             eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
@@ -248,9 +268,7 @@ mod test {
             let parsed_ast = parser
                 .parse_program()
                 .expect("Should be parsed successfully");
-            let mut environment = Environment {
-                store: HashMap::new(),
-            };
+            let mut environment = Environment::new();
             let result =
                 eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 
@@ -265,9 +283,7 @@ mod test {
         let parsed_ast = parser
             .parse_program()
             .expect("Should be parsed successfully");
-        let mut environment = Environment {
-            store: HashMap::new(),
-        };
+        let mut environment = Environment::new();
         let result = eval_statements(parsed_ast.statements, &mut environment);
 
         assert_eq!(result, Result::Err(Error::IdentifierNotFound("foobar")));
@@ -307,9 +323,7 @@ mod test {
             let parsed_ast = parser
                 .parse_program()
                 .expect("Should be parsed successfully");
-            let mut environment = Environment {
-                store: HashMap::new(),
-            };
+            let mut environment = Environment::new();
             let result =
                 eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
 
