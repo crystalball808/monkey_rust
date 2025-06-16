@@ -83,6 +83,7 @@ impl TryFrom<&Token<'_>> for InfixOperator {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Expression {
     IntLiteral(i32),
+    StringLiteral(String),
     Boolean(bool),
     Identifier(String),
     Prefix(PrefixOperator, Box<Expression>),

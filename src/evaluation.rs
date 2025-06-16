@@ -89,6 +89,7 @@ impl std::error::Error for Error {}
 fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObject, Error> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
+        Expression::StringLiteral(string) => Ok(Object::String(string).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
         Expression::Prefix(PrefixOperator::Negative, expr) => {
             match eval_expression(*expr, env)?.0 {
@@ -100,9 +101,7 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
             Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
             Object::Null => Ok(Object::Boolean(true).into()),
-            obj @ Object::Function { .. } => {
-                Err(Error::PrefixTypeMismatch(PrefixOperator::Not, obj))
-            }
+            other => Err(Error::PrefixTypeMismatch(PrefixOperator::Not, other)),
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
@@ -161,6 +160,11 @@ fn eval_infix(
             right_obj,
         )),
         (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => Err(Error::InfixTypeMismatch(
+            infix_operator,
+            left_obj,
+            right_obj,
+        )),
+        (_, Object::String(_), _) | (_, _, Object::String(_)) => Err(Error::InfixTypeMismatch(
             infix_operator,
             left_obj,
             right_obj,

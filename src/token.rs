@@ -5,6 +5,7 @@ pub enum Token<'a> {
     // Identifiers + literals
     Identifier(&'a str),
     Int(i32),
+    String(&'a str),
 
     // Operators
     Assign,

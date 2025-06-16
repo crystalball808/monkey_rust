@@ -6,6 +6,7 @@ use crate::ast::Statement;
 pub enum Object {
     Integer(i32),
     Boolean(bool),
+    String(String),
     Function {
         arguments: Vec<String>,
         body: Vec<Statement>,
@@ -19,6 +20,7 @@ impl Display for Object {
         match self {
             Object::Integer(integer) => write!(f, "{}", integer),
             Object::Boolean(boolean) => write!(f, "{}", boolean),
+            Object::String(string) => write!(f, "\"{}\"", string),
             Object::Null => write!(f, "null"),
             Object::Function { arguments, body } => write!(
                 f,
@@ -34,6 +36,7 @@ impl Object {
         match self {
             Object::Integer(int) => *int > 0,
             Object::Boolean(b) => *b,
+            Object::String(string) => string.len() > 0,
             Object::Null => false,
             Object::Function { .. } => false,
         }

@@ -58,6 +58,7 @@ impl<'l> Parser<'l> {
     fn parse_single_expression(&mut self) -> Result<Expression, String> {
         let expr: Expression = match self.lexer.next().ok_or(String::from("No token to parse"))? {
             Token::Int(integer) => Expression::IntLiteral(integer),
+            Token::String(string) => Expression::StringLiteral(string.to_owned()),
             Token::False => Expression::Boolean(false),
             Token::True => Expression::Boolean(true),
             Token::Identifier(identifier) => {
@@ -347,7 +348,7 @@ mod test {
         let input = "
 let x = 5;
 let y = 10;
-let foobar = 838383;";
+let foobar = \"bazquaz\";";
 
         let lexer = Lexer::new(input);
         let parser = Parser::new(lexer);
@@ -358,7 +359,7 @@ let foobar = 838383;";
         let expected_ast = Program::new(vec![
             Statement::Let("x".to_owned(), IntLiteral(5)),
             Statement::Let("y".to_owned(), IntLiteral(10)),
-            Statement::Let("foobar".to_owned(), IntLiteral(838383)),
+            Statement::Let("foobar".to_owned(), StringLiteral("bazquaz".to_owned())),
         ]);
 
         assert_eq!(parsed_ast, expected_ast);

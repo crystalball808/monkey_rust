@@ -7,6 +7,13 @@ fn read_word(input: &str) -> &str {
 
     &input[0..first_nonletter_index]
 }
+fn read_string(input: &str) -> Result<&str, String> {
+    let end_i = input[1..]
+        .find(|ch| ch == '"')
+        .ok_or(String::from("String literal not finished"))?;
+
+    Ok(&input[1..=end_i])
+}
 fn read_int(input: &str) -> &str {
     let first_nondigit_index = input.find(|ch: char| !ch.is_numeric()).unwrap_or(1);
 
@@ -48,11 +55,16 @@ impl<'i> Iterator for Lexer<'i> {
         let ch = chars.next()?;
 
         let t = match ch {
+            '"' => {
+                let str = read_string(self.input).expect("Should read a string");
+                self.input = &self.input[(str.len() + 2)..];
+
+                return Some(Token::String(str));
+            }
             letter if letter.is_alphabetic() || letter == '_' => {
                 let word = read_word(&self.input);
 
                 self.input = &self.input[word.len()..];
-
                 return Some(lookup_keyword(word));
             }
             digit if digit.is_numeric() => {
@@ -170,8 +182,22 @@ fn keywords() {
 }
 
 #[test]
+fn strings() {
+    let input = "let title = \"foo\";";
+    use Token::*;
+    let expected_result = vec![Let, Identifier("title"), Assign, String("foo"), Semicolon];
+
+    let lexer = Lexer::new(input);
+
+    let output: Vec<Token> = lexer.collect();
+
+    assert_eq!(output, expected_result);
+}
+
+#[test]
 fn basic_set() {
     let input = "let five = 5;
+let name = \"Roman\";
 let ten = 10;
 
 let add = fn(x, y) {
@@ -186,6 +212,11 @@ let result = add(five, ten);
         Identifier("five"),
         Assign,
         Int(5),
+        Semicolon,
+        Let,
+        Identifier("name"),
+        Assign,
+        String("Roman"),
         Semicolon,
         Let,
         Identifier("ten"),
