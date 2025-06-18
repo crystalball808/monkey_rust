@@ -6,35 +6,40 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Environment<'o> {
+pub struct Environment {
     pub store: HashMap<String, Object>,
-    outer: Option<&'o Environment<'o>>,
+    outer: Option<Box<Environment>>,
 }
-impl<'o> PartialOrd for Environment<'o> {
+impl PartialOrd for Environment {
     fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
         None
     }
 }
-impl<'o> Environment<'o> {
+
+impl Environment {
     pub fn new() -> Self {
         Self {
             store: HashMap::new(),
             outer: None,
         }
     }
-    pub fn with_outer(outer: &'o Environment) -> Self {
+    pub fn with_outer(outer: Environment) -> Self {
         Self {
             store: HashMap::new(),
-            outer: Some(outer),
+            outer: Some(Box::new(outer)),
         }
     }
-    pub fn set(&mut self, key: impl Into<String>, value: Object) {
+    pub fn add_outer(&mut self, outer: Environment) {
+        self.outer = Some(Box::new(outer))
+    }
+    pub fn set(&'_ mut self, key: impl Into<String>, value: Object) {
         self.store.insert(key.into(), value);
     }
     pub fn get(&self, key: &str) -> Option<&Object> {
         let maybe_val = self.store.get(key);
         if maybe_val.is_none() && self.outer.is_some() {
-            self.outer.unwrap().get(key)
+            let outer = self.outer.as_ref().unwrap();
+            outer.get(key)
         } else {
             maybe_val
         }
@@ -48,11 +53,10 @@ pub fn eval_statements(
     let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
-        let res = eval_statement(statement, env)?;
-        if res.1 {
-            return Ok(res);
+        result = eval_statement(statement, env)?;
+        if result.1 {
+            return Ok(result);
         }
-        result = res
     }
 
     Ok(result)
@@ -61,10 +65,10 @@ pub fn eval_statements(
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum Error {
-    InfixTypeMismatch(InfixOperator, Object, Object),
-    PrefixTypeMismatch(PrefixOperator, Object),
+    InfixTypeMismatch(InfixOperator, String, String),
+    PrefixTypeMismatch(PrefixOperator, String),
     IdentifierNotFound(String),
-    NotCallable(Object),
+    NotCallable(String),
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,14 +98,20 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
         Expression::Prefix(PrefixOperator::Negative, expr) => {
             match eval_expression(*expr, env)?.0 {
                 Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
-                other => Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, other)),
+                other => Err(Error::PrefixTypeMismatch(
+                    PrefixOperator::Negative,
+                    other.to_string(),
+                )),
             }
         }
         Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr, env)?.0 {
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
             Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
             Object::Null => Ok(Object::Boolean(true).into()),
-            other => Err(Error::PrefixTypeMismatch(PrefixOperator::Not, other)),
+            other => Err(Error::PrefixTypeMismatch(
+                PrefixOperator::Not,
+                other.to_string(),
+            )),
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
@@ -113,24 +123,37 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
         Expression::If(condition, consequence, alternative) => {
             let condition = eval_expression(*condition, env)?.0;
             if condition.is_truthy() {
-                eval_statements(consequence, &mut Environment::with_outer(env))
+                eval_statements(consequence, &mut Environment::with_outer(env.clone()))
             } else {
                 if alternative.is_some() {
-                    eval_statements(alternative.unwrap(), &mut Environment::with_outer(env))
+                    eval_statements(
+                        alternative.unwrap(),
+                        &mut Environment::with_outer(env.clone()),
+                    )
                 } else {
                     Ok(Object::Null.into())
                 }
             }
         }
-        Expression::Func(arguments, body) => Ok(Object::Function { arguments, body }.into()),
+        Expression::Func(arguments, body) => Ok(Object::Function {
+            arguments,
+            body,
+            captured_env: env.clone(),
+        }
+        .into()),
         Expression::Call(expr, passed_values) => {
             let function = eval_expression(*expr, env)?.0;
-            let Object::Function { arguments, body } = function else {
-                return Err(Error::NotCallable(function));
+            let Object::Function {
+                arguments,
+                body,
+                captured_env: mut func_env,
+            } = function
+            else {
+                return Err(Error::NotCallable(function.to_string()));
             };
-            let mut func_env = Environment::with_outer(env);
+            func_env.add_outer(env.clone());
             for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
-                func_env.set(arg_name, eval_expression(expr, env)?.0)
+                func_env.set(arg_name, eval_expression(expr, &env)?.0)
             }
 
             eval_statements(body, &mut func_env)
@@ -138,7 +161,7 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
     }
 }
 
-fn eval_infix(
+fn eval_infix<'outer>(
     infix_operator: InfixOperator,
     left_expr: Expression,
     right_expr: Expression,
@@ -152,22 +175,22 @@ fn eval_infix(
             Ok(Object::Boolean(left_obj != right_obj))
         }
         (_, Object::Function { .. }, _) | (_, _, Object::Function { .. }) => Err(
-            Error::InfixTypeMismatch(infix_operator, left_obj, right_obj),
+            Error::InfixTypeMismatch(infix_operator, left_obj.to_string(), right_obj.to_string()),
         ),
         (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
             infix_operator,
-            left_obj,
-            right_obj,
+            left_obj.to_string(),
+            right_obj.to_string(),
         )),
         (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => Err(Error::InfixTypeMismatch(
             infix_operator,
-            left_obj,
-            right_obj,
+            left_obj.to_string(),
+            right_obj.to_string(),
         )),
         (_, Object::String(_), _) | (_, _, Object::String(_)) => Err(Error::InfixTypeMismatch(
             infix_operator,
-            left_obj,
-            right_obj,
+            left_obj.to_string(),
+            right_obj.to_string(),
         )),
         (InfixOperator::Add, Object::Integer(left_int), Object::Integer(right_int)) => {
             Ok(Object::Integer(left_int + right_int))
@@ -193,7 +216,7 @@ fn eval_infix(
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ReturnableObject(pub Object, bool);
-impl Into<ReturnableObject> for Object {
+impl<'outer> Into<ReturnableObject> for Object {
     fn into(self) -> ReturnableObject {
         ReturnableObject(self, false)
     }
@@ -306,6 +329,7 @@ mod test {
         assert_eq!(
             result.0,
             Object::Function {
+                captured_env: Environment::new(),
                 arguments: vec![String::from("x")],
                 body: vec![Statement::Expression(Expression::Infix(
                     InfixOperator::Add,
@@ -357,5 +381,30 @@ mod test {
 
             assert_eq!(result.0, test.output, "input: {}", test.input);
         }
+    }
+
+    #[test]
+    fn currying() {
+        let input = "
+let add = fn(x) {
+    fn (y) {
+        x + y
+    }
+};
+
+let add_two = add(2);
+
+add_two(3)
+";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let mut environment = Environment::new();
+        let result =
+            eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
+
+        assert_eq!(result.0, Object::Integer(5));
     }
 }
