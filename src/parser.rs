@@ -180,6 +180,10 @@ impl<'l> Parser<'l> {
         let Some(Token::LParen) = self.lexer.next() else {
             return Err(String::from("Call expression must have parentheses"));
         };
+        if let Some(Token::RParen) = self.lexer.peek() {
+            self.lexer.next();
+            return Ok(Expression::Call(Box::new(func_expr), Vec::new()));
+        }
         let mut arguments = Vec::new();
 
         loop {

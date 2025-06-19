@@ -1,9 +1,2 @@
-let add = fn(x) {
-    fn (y) {
-        x + y
-    }
-};
-
-let add_two = add(2);
-
-add_two(3)
+let get_number = fn() { 2 };
+get_number()
