@@ -187,6 +187,9 @@ fn eval_infix<'outer>(
             left_obj.to_string(),
             right_obj.to_string(),
         )),
+        (InfixOperator::Add, Object::String(left_str), Object::String(right_string)) => {
+            Ok(Object::String(left_str.to_owned() + right_string))
+        }
         (_, Object::String(_), _) | (_, _, Object::String(_)) => Err(Error::InfixTypeMismatch(
             infix_operator,
             left_obj.to_string(),
