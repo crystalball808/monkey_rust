@@ -1,2 +1,5 @@
-let get_number = fn() { 2 };
-get_number()
+let calc = fn(x, y) {
+    x * 2
+};
+
+calc()

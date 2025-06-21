@@ -1,3 +1,0 @@
-- [x] currying
-- [ ] call expression without arguments
-- [ ] validate number of args

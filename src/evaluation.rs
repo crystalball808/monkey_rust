@@ -69,6 +69,7 @@ pub enum Error {
     PrefixTypeMismatch(PrefixOperator, String),
     IdentifierNotFound(String),
     NotCallable(String),
+    ArgumentCountMismatch(String),
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -84,6 +85,13 @@ impl Display for Error {
             }
             Error::NotCallable(obj) => {
                 write!(f, "Not callable: {}", obj)
+            }
+            Error::ArgumentCountMismatch(func_name) => {
+                write!(
+                    f,
+                    "Argument count mismatch for function with arguments \"{}\"",
+                    func_name
+                )
             }
         }
     }
@@ -152,6 +160,10 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
                 return Err(Error::NotCallable(function.to_string()));
             };
             func_env.add_outer(env.clone());
+
+            if arguments.len() != passed_values.len() {
+                return Err(Error::ArgumentCountMismatch(arguments.join(",")));
+            }
             for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
                 func_env.set(arg_name, eval_expression(expr, &env)?.0)
             }
