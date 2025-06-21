@@ -1,5 +1,1 @@
-let calc = fn(x, y) {
-    x * 2
-};
-
-calc()
+len("roman")

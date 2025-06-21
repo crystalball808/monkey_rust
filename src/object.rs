@@ -12,6 +12,7 @@ pub enum Object {
         body: Vec<Statement>,
         captured_env: Environment,
     },
+    BuiltInFunction(String),
     Null,
 }
 
@@ -32,6 +33,7 @@ impl Display for Object {
                 arguments.len(),
                 body.len()
             ),
+            Object::BuiltInFunction(name) => write!(f, "Builtin function: {}", name),
         }
     }
 }
@@ -43,6 +45,7 @@ impl Object {
             Object::String(string) => string.len() > 0,
             Object::Null => false,
             Object::Function { .. } => false,
+            Object::BuiltInFunction(_) => false,
         }
     }
 }

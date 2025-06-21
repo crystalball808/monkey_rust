@@ -70,10 +70,14 @@ pub enum Error {
     IdentifierNotFound(String),
     NotCallable(String),
     ArgumentCountMismatch(String),
+    TypeMismatch(String),
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::TypeMismatch(obj) => {
+                write!(f, "Type mismatch: {}", obj)
+            }
             Error::InfixTypeMismatch(op, left, right) => {
                 write!(f, "Type mismatch: {} {} {}", left, op, right)
             }
@@ -97,6 +101,46 @@ impl Display for Error {
     }
 }
 impl std::error::Error for Error {}
+
+fn lookup_builtin(name: &str) -> Option<Object> {
+    match name {
+        "len" => Some(Object::BuiltInFunction(name.to_owned())),
+        _ => None,
+    }
+}
+
+mod builtin {
+    use crate::{ast::Expression, object::Object};
+
+    use super::{Environment, Error, eval_expression};
+
+    pub fn eval_builtin(
+        name: &str,
+        mut arguments: impl Iterator<Item = Expression>,
+        env: &Environment,
+    ) -> Result<Object, Error> {
+        match name {
+            "len" => {
+                let arg = arguments
+                    .next()
+                    .ok_or(Error::ArgumentCountMismatch("len".to_owned()))?;
+                eval_expression(arg, &env).and_then(|ret_obj| match ret_obj.0 {
+                    Object::String(string) => Ok(Object::Integer(string.len() as i32)),
+                    other => Err(Error::TypeMismatch(other.to_string())),
+                })
+                // if arguments.len() != 1 {
+                //     eval_expression(arguments.into_iter().next(), &env).and_then(|ret_obj| match ret_obj.0 {
+                //         Object::String(string) => Ok(Object::Integer(string.len() as i32)),
+                //         other => Err(Error::TypeMismatch(other.to_string())),
+                //     })
+                // } else {
+                //     Err(Error::ArgumentCountMismatch(name.to_owned()))
+                // }
+            }
+            other => Err(Error::NotCallable(other.to_owned())),
+        }
+    }
+}
 
 fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObject, Error> {
     match expr {
@@ -124,9 +168,9 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
         }
-        Expression::Identifier(ident) => env
-            .get(&ident)
-            .map(|obj| obj.clone().into())
+        Expression::Identifier(ident) => lookup_builtin(&ident)
+            .or(env.get(&ident).cloned())
+            .map(|obj| ReturnableObject::from(obj))
             .ok_or(Error::IdentifierNotFound(ident)),
         Expression::If(condition, consequence, alternative) => {
             let condition = eval_expression(*condition, env)?.0;
@@ -150,25 +194,30 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
         }
         .into()),
         Expression::Call(expr, passed_values) => {
-            let function = eval_expression(*expr, env)?.0;
-            let Object::Function {
-                arguments,
-                body,
-                captured_env: mut func_env,
-            } = function
-            else {
-                return Err(Error::NotCallable(function.to_string()));
-            };
-            func_env.add_outer(env.clone());
+            let obj = eval_expression(*expr, env)?.0;
+            match obj {
+                Object::Function {
+                    arguments,
+                    body,
+                    mut captured_env,
+                } => {
+                    captured_env.add_outer(env.clone());
 
-            if arguments.len() != passed_values.len() {
-                return Err(Error::ArgumentCountMismatch(arguments.join(",")));
-            }
-            for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
-                func_env.set(arg_name, eval_expression(expr, &env)?.0)
-            }
+                    if arguments.len() != passed_values.len() {
+                        return Err(Error::ArgumentCountMismatch(arguments.join(",")));
+                    }
+                    for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
+                        captured_env.set(arg_name, eval_expression(expr, &env)?.0)
+                    }
 
-            eval_statements(body, &mut func_env)
+                    eval_statements(body, &mut captured_env)
+                }
+                Object::BuiltInFunction(name) => {
+                    builtin::eval_builtin(&name, passed_values.into_iter(), env)
+                        .map(ReturnableObject::from)
+                }
+                not_callable_obj => Err(Error::NotCallable(not_callable_obj.to_string())),
+            }
         }
     }
 }
@@ -187,6 +236,9 @@ fn eval_infix<'outer>(
             Ok(Object::Boolean(left_obj != right_obj))
         }
         (_, Object::Function { .. }, _) | (_, _, Object::Function { .. }) => Err(
+            Error::InfixTypeMismatch(infix_operator, left_obj.to_string(), right_obj.to_string()),
+        ),
+        (_, Object::BuiltInFunction { .. }, _) | (_, _, Object::BuiltInFunction { .. }) => Err(
             Error::InfixTypeMismatch(infix_operator, left_obj.to_string(), right_obj.to_string()),
         ),
         (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
@@ -231,11 +283,12 @@ fn eval_infix<'outer>(
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ReturnableObject(pub Object, bool);
-impl<'outer> Into<ReturnableObject> for Object {
-    fn into(self) -> ReturnableObject {
-        ReturnableObject(self, false)
+impl From<Object> for ReturnableObject {
+    fn from(value: Object) -> Self {
+        Self(value, false)
     }
 }
+
 fn eval_statement(statement: Statement, env: &mut Environment) -> Result<ReturnableObject, Error> {
     match statement {
         Statement::Let(identifier, expression) => {
