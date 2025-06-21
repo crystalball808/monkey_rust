@@ -123,19 +123,15 @@ mod builtin {
             "len" => {
                 let arg = arguments
                     .next()
-                    .ok_or(Error::ArgumentCountMismatch("len".to_owned()))?;
-                eval_expression(arg, &env).and_then(|ret_obj| match ret_obj.0 {
-                    Object::String(string) => Ok(Object::Integer(string.len() as i32)),
-                    other => Err(Error::TypeMismatch(other.to_string())),
-                })
-                // if arguments.len() != 1 {
-                //     eval_expression(arguments.into_iter().next(), &env).and_then(|ret_obj| match ret_obj.0 {
-                //         Object::String(string) => Ok(Object::Integer(string.len() as i32)),
-                //         other => Err(Error::TypeMismatch(other.to_string())),
-                //     })
-                // } else {
-                //     Err(Error::ArgumentCountMismatch(name.to_owned()))
-                // }
+                    .ok_or(Error::ArgumentCountMismatch("string".to_owned()))?;
+                if arguments.next().is_some() {
+                    Err(Error::ArgumentCountMismatch("string".to_owned()))
+                } else {
+                    eval_expression(arg, &env).and_then(|ret_obj| match ret_obj.0 {
+                        Object::String(string) => Ok(Object::Integer(string.len() as i32)),
+                        other => Err(Error::TypeMismatch(other.to_string())),
+                    })
+                }
             }
             other => Err(Error::NotCallable(other.to_owned())),
         }
