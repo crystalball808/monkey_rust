@@ -102,17 +102,17 @@ impl Display for Error {
 }
 impl std::error::Error for Error {}
 
-fn lookup_builtin(name: &str) -> Option<Object> {
-    match name {
-        "len" => Some(Object::BuiltInFunction(name.to_owned())),
-        _ => None,
-    }
-}
-
 mod builtin {
     use crate::{ast::Expression, object::Object};
 
     use super::{Environment, Error, eval_expression};
+
+    pub fn lookup_name(name: &str) -> Option<Object> {
+        match name {
+            "len" => Some(Object::BuiltInFunction(name.to_owned())),
+            _ => None,
+        }
+    }
 
     pub fn eval_builtin(
         name: &str,
@@ -129,6 +129,7 @@ mod builtin {
                 } else {
                     eval_expression(arg, &env).and_then(|ret_obj| match ret_obj.0 {
                         Object::String(string) => Ok(Object::Integer(string.len() as i32)),
+                        Object::Array(array) => Ok(Object::Integer(array.len() as i32)),
                         other => Err(Error::TypeMismatch(other.to_string())),
                     })
                 }
@@ -174,7 +175,7 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
         }
-        Expression::Identifier(ident) => lookup_builtin(&ident)
+        Expression::Identifier(ident) => builtin::lookup_name(&ident)
             .or(env.get(&ident).cloned())
             .map(|obj| ReturnableObject::from(obj))
             .ok_or(Error::IdentifierNotFound(ident)),
