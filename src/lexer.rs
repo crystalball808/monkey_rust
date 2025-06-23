@@ -89,6 +89,8 @@ impl<'i> Iterator for Lexer<'i> {
             ')' => Token::RParen,
             '{' => Token::LBrace,
             '}' => Token::RBrace,
+            '[' => Token::LBracket,
+            ']' => Token::RBracket,
             ',' => Token::Comma,
             '+' => Token::Plus,
             '-' => Token::Minus,
@@ -204,6 +206,7 @@ let add = fn(x, y) {
   x + y
 };
 let result = add(five, ten);
+[1, 2];
 ";
 
     use Token::*;
@@ -247,6 +250,12 @@ let result = add(five, ten);
         Comma,
         Identifier("ten"),
         RParen,
+        Semicolon,
+        LBracket,
+        Int(1),
+        Comma,
+        Int(2),
+        RBracket,
         Semicolon,
     ];
 

@@ -76,6 +76,7 @@ impl<'l> Parser<'l> {
                 Expression::Prefix(PrefixOperator::Not, Box::new(self.parse_expression()?))
             }
             Token::LParen => self.parse_grouped_expression()?,
+            Token::LBracket => self.parse_array_literal()?,
             Token::If => self.parse_if_expression()?,
             Token::Function => {
                 let expr = self.parse_function_literal()?;
@@ -272,6 +273,24 @@ impl<'l> Parser<'l> {
             concequence,
             alternative,
         ))
+    }
+    fn parse_array_literal(&mut self) -> Result<Expression, String> {
+        if let Some(Token::RBracket) = self.lexer.peek() {
+            self.lexer.next();
+            return Ok(Expression::ArrayLiteral(Vec::new()));
+        };
+
+        let mut exprs = Vec::new();
+        loop {
+            exprs.push(self.parse_single_expression()?);
+            match self.lexer.next() {
+                Some(Token::RBracket) => break,
+                Some(Token::Comma) => {}
+                _ => return Err(String::from("Array literal: unexpected token")),
+            }
+        }
+
+        Ok(Expression::ArrayLiteral(exprs))
     }
     fn parse_statements(&mut self) -> Result<Vec<Statement>, String> {
         let mut statements: Vec<Statement> = Vec::new();

@@ -29,6 +29,8 @@ pub enum Token<'a> {
     RParen,
     LBrace,
     RBrace,
+    LBracket,
+    RBracket,
 
     // Keywords
     Function,

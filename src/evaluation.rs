@@ -142,6 +142,16 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::StringLiteral(string) => Ok(Object::String(string).into()),
+        Expression::ArrayLiteral(exprs) => {
+            let mut objs = Vec::with_capacity(exprs.len());
+            for expr in exprs {
+                let obj = eval_expression(expr, env)?;
+                objs.push(obj.0);
+            }
+
+            let obj = Object::Array(objs);
+            Ok(ReturnableObject(obj, false))
+        }
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
         Expression::Prefix(PrefixOperator::Negative, expr) => {
             match eval_expression(*expr, env)?.0 {
@@ -218,7 +228,7 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
     }
 }
 
-fn eval_infix<'outer>(
+fn eval_infix(
     infix_operator: InfixOperator,
     left_expr: Expression,
     right_expr: Expression,
@@ -237,6 +247,11 @@ fn eval_infix<'outer>(
         (_, Object::BuiltInFunction { .. }, _) | (_, _, Object::BuiltInFunction { .. }) => Err(
             Error::InfixTypeMismatch(infix_operator, left_obj.to_string(), right_obj.to_string()),
         ),
+        (_, Object::Array(_), _) | (_, _, Object::Array(_)) => Err(Error::InfixTypeMismatch(
+            infix_operator,
+            left_obj.to_string(),
+            right_obj.to_string(),
+        )),
         (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
             infix_operator,
             left_obj.to_string(),

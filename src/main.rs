@@ -63,7 +63,7 @@ const PROMPT: &str = "\x1b[1;32m>>\x1b[0m ";
 fn run_repl() -> io::Result<()> {
     let reader = io::stdin();
 
-    print!("Welcome to the Monkey REPL!\n{PROMPT} ");
+    print!("Welcome to the Monkey REPL!\n{PROMPT}");
     io::stdout().flush()?;
     let mut input = String::new();
     let mut environment = Environment::new();
