@@ -491,7 +491,7 @@ add_two(3)
     #[test]
     fn recursion() {
         let input = "
-let fc = fn(x) { 
+let fib = fn(x) { 
   if (x < 2) {
       return x;
   } else {
