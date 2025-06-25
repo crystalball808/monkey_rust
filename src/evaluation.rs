@@ -487,4 +487,29 @@ add_two(3)
 
         assert_eq!(result.0, Object::Integer(5));
     }
+
+    #[test]
+    fn recursion() {
+        let input = "
+let fc = fn(x) { 
+  if (x < 2) {
+      return x;
+  } else {
+      return fc(x - 2) + fc(x - 1);
+  }
+};
+
+fc(5)
+";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let mut environment = Environment::new();
+        let result =
+            eval_statements(parsed_ast.statements, &mut environment).expect("Should evaluate");
+
+        assert_eq!(result.0, Object::Integer(5));
+    }
 }
