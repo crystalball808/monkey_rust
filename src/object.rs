@@ -54,7 +54,7 @@ impl Object {
         match self {
             Object::Integer(int) => *int > 0,
             Object::Boolean(b) => *b,
-            Object::String(string) => string.len() > 0,
+            Object::String(string) => !string.is_empty(),
             _ => false,
         }
     }

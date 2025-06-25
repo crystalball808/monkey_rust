@@ -15,6 +15,11 @@ impl PartialOrd for Environment {
         None
     }
 }
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Environment {
     pub fn new() -> Self {
@@ -127,7 +132,7 @@ mod builtin {
                 if arguments.next().is_some() {
                     Err(Error::ArgumentCountMismatch("string".to_owned()))
                 } else {
-                    eval_expression(arg, &env).and_then(|ret_obj| match ret_obj.0 {
+                    eval_expression(arg, env).and_then(|ret_obj| match ret_obj.0 {
                         Object::String(string) => Ok(Object::Integer(string.len() as i32)),
                         Object::Array(array) => Ok(Object::Integer(array.len() as i32)),
                         other => Err(Error::TypeMismatch(other.to_string())),
@@ -177,23 +182,22 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
         }
         Expression::Identifier(ident) => builtin::lookup_name(&ident)
             .or(env.get(&ident).cloned())
-            .map(|obj| ReturnableObject::from(obj))
+            .map(ReturnableObject::from)
             .ok_or(Error::IdentifierNotFound(ident)),
         Expression::If(condition, consequence, alternative) => {
             let condition = eval_expression(*condition, env)?.0;
             if condition.is_truthy() {
                 eval_statements(consequence, &mut Environment::with_outer(env.clone()))
+            } else if alternative.is_some() {
+                eval_statements(
+                    alternative.unwrap(),
+                    &mut Environment::with_outer(env.clone()),
+                )
             } else {
-                if alternative.is_some() {
-                    eval_statements(
-                        alternative.unwrap(),
-                        &mut Environment::with_outer(env.clone()),
-                    )
-                } else {
-                    Ok(Object::Null.into())
-                }
+                Ok(Object::Null.into())
             }
         }
+
         Expression::Func(arguments, body) => Ok(Object::Function {
             arguments,
             body,
@@ -214,7 +218,7 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
                         return Err(Error::ArgumentCountMismatch(arguments.join(",")));
                     }
                     for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
-                        captured_env.set(arg_name, eval_expression(expr, &env)?.0)
+                        captured_env.set(arg_name, eval_expression(expr, env)?.0)
                     }
 
                     eval_statements(body, &mut captured_env)

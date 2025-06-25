@@ -88,10 +88,10 @@ impl<'l> Parser<'l> {
             }
 
             other_token => {
-                return Err(String::from(format!(
+                return Err(format!(
                     "Parse single expession: Unexpected token: {:?}",
                     other_token
-                )));
+                ));
             }
         };
 

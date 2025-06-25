@@ -9,7 +9,7 @@ fn read_word(input: &str) -> &str {
 }
 fn read_string(input: &str) -> Result<&str, String> {
     let end_i = input[1..]
-        .find(|ch| ch == '"')
+        .find('"')
         .ok_or(String::from("String literal not finished"))?;
 
     Ok(&input[1..=end_i])
@@ -62,13 +62,13 @@ impl<'i> Iterator for Lexer<'i> {
                 return Some(Token::String(str));
             }
             letter if letter.is_alphabetic() || letter == '_' => {
-                let word = read_word(&self.input);
+                let word = read_word(self.input);
 
                 self.input = &self.input[word.len()..];
                 return Some(lookup_keyword(word));
             }
             digit if digit.is_numeric() => {
-                let number = read_int(&self.input);
+                let number = read_int(self.input);
 
                 self.input = &self.input[number.len()..];
 
