@@ -214,6 +214,13 @@ impl<'l> Parser<'l> {
         while let Some(peekeed_token) = self.lexer.peek() {
             if InfixOperator::try_from(peekeed_token).is_ok() {
                 expr = self.infix_parse(expr, false)?;
+            } else if let Token::LBracket = peekeed_token {
+                self.lexer.next();
+                let index = self.parse_single_expression()?;
+                let Some(Token::RBracket) = self.lexer.next() else {
+                    return Err(String::from("Unfinished index expression"));
+                };
+                return Ok(Expression::Index(Box::new(expr), Box::new(index)));
             } else {
                 return Ok(expr);
             }
@@ -561,6 +568,23 @@ foobar;
             )),
             Box::new(IntLiteral(2)),
             false,
+        ))]);
+
+        assert_eq!(parsed_ast, expected_ast);
+    }
+    #[test]
+    fn index() {
+        let input = "foo[1]";
+
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+
+        let expected_ast = Program::new(vec![Statement::Expression(Index(
+            Box::new(Identifier(String::from("foo"))),
+            Box::new(IntLiteral(1)),
         ))]);
 
         assert_eq!(parsed_ast, expected_ast);

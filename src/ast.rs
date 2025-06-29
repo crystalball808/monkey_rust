@@ -92,6 +92,7 @@ pub enum Expression {
     If(Box<Expression>, Vec<Statement>, Option<Vec<Statement>>),
     Func(Vec<String>, Vec<Statement>),
     Call(Box<Expression>, Vec<Expression>),
+    Index(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]

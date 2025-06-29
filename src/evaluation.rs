@@ -76,6 +76,8 @@ pub enum Error {
     NotCallable(String),
     ArgumentCountMismatch(String),
     TypeMismatch(String),
+    NotIndexable,
+    OutOfBounds,
 }
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -94,6 +96,12 @@ impl Display for Error {
             }
             Error::NotCallable(obj) => {
                 write!(f, "Not callable: {}", obj)
+            }
+            Error::NotIndexable => {
+                write!(f, "Not indexable")
+            }
+            Error::OutOfBounds => {
+                write!(f, "Out of bounds")
             }
             Error::ArgumentCountMismatch(func_name) => {
                 write!(
@@ -159,6 +167,19 @@ fn eval_expression(expr: Expression, env: &Environment) -> Result<ReturnableObje
             Ok(ReturnableObject(obj, false))
         }
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
+        Expression::Index(maybe_array, maybe_index) => {
+            let Object::Array(array) = eval_expression(*maybe_array, env)?.0 else {
+                return Err(Error::NotIndexable);
+            };
+            let maybe_index = eval_expression(*maybe_index, env)?.0;
+            let Object::Integer(index) = maybe_index else {
+                return Err(Error::TypeMismatch(maybe_index.to_string()));
+            };
+            return array
+                .get(index as usize)
+                .map(|o| o.to_owned().into())
+                .ok_or(Error::OutOfBounds);
+        }
         Expression::Prefix(PrefixOperator::Negative, expr) => {
             match eval_expression(*expr, env)?.0 {
                 Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
@@ -499,11 +520,11 @@ let fib = fn(x) {
   if (x < 2) {
       return x;
   } else {
-      return fc(x - 2) + fc(x - 1);
+      return fib(x - 2) + fib(x - 1);
   }
 };
 
-fc(5)
+fib(5)
 ";
         let lexer = Lexer::new(input);
         let parser = Parser::new(lexer);
