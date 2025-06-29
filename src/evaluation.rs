@@ -195,8 +195,6 @@ impl<'ast> Into<ReturnableObject<'ast>> for Object<'ast> {
 }
 fn eval_statement<'ast>(
     statement: Statement<'ast>,
-    // env: &'env mut Environment<'ast>,
-    // env: RefMut<'env, Environment<'ast>>,
     env: Rc<RefCell<Environment<'ast>>>,
 ) -> Result<ReturnableObject<'ast>, Error<'ast>> {
     match statement {
