@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::Token;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 /// Prefix operator (e.g. `-5`, `!foo`)
 pub enum PrefixOperator {
     /// e.g. `!5`, `!foo(1, "bar")`
@@ -19,7 +19,7 @@ impl Display for PrefixOperator {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum InfixOperator {
     Equals,
     NotEquals,
@@ -80,7 +80,7 @@ impl TryFrom<&Token<'_>> for InfixOperator {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Expression<'i> {
     IntLiteral(i32),
     Boolean(bool),
@@ -101,7 +101,7 @@ pub enum Expression<'i> {
     Call(Box<Expression<'i>>, Vec<Expression<'i>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Statement<'i> {
     Let(&'i str, Expression<'i>),
     Return(Expression<'i>),

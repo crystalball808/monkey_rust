@@ -1,10 +1,16 @@
-use std::fmt::Display;
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+use crate::{ast::Statement, evaluation::Environment};
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Object<'i> {
     Integer(i32),
     Boolean(bool),
-    Function { arguments: Vec<&'i str> },
+    Function {
+        arguments: Vec<&'i str>,
+        body: Vec<Statement<'i>>,
+        captured_env: Rc<RefCell<Environment<'i>>>,
+    },
     Null,
 }
 
@@ -14,7 +20,16 @@ impl<'ast> Display for Object<'ast> {
             Object::Integer(integer) => write!(f, "{}", integer),
             Object::Boolean(boolean) => write!(f, "{}", boolean),
             Object::Null => write!(f, "null"),
-            Object::Function { arguments } => todo!(),
+            Object::Function {
+                arguments,
+                body,
+                captured_env: _,
+            } => write!(
+                f,
+                "function({} argumesnts) {{ {} statements }}",
+                arguments.len(),
+                body.len()
+            ),
         }
     }
 }

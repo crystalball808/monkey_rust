@@ -5,6 +5,7 @@ use crate::{
     object::Object,
 };
 
+#[derive(Debug, PartialEq)]
 pub struct Environment<'ast> {
     pub store: HashMap<&'ast str, Object<'ast>>,
     outer: Option<Rc<RefCell<Environment<'ast>>>>,
@@ -25,15 +26,21 @@ impl<'ast> Environment<'ast> {
     pub fn set(&mut self, key: &'ast str, value: Object<'ast>) {
         self.store.insert(key, value);
     }
-    pub fn get(&self, key: &'ast str) -> Option<Object<'ast>> {
-        self.store.get(key).cloned()
+    pub fn get(&self, key: &str) -> Option<Object<'ast>> {
+        if let Some(val) = self.store.get(key) {
+            Some(val.clone())
+        } else if let Some(ref outer) = self.outer {
+            outer.borrow().get(key)
+        } else {
+            None
+        }
     }
 }
 
 pub fn eval_statements<'ast>(
     statements: Vec<Statement<'ast>>,
     env: Rc<RefCell<Environment<'ast>>>,
-) -> Result<ReturnableObject<'ast>, Error<'ast>> {
+) -> Result<ReturnableObject<'ast>, Error> {
     let mut result = ReturnableObject(Object::Null, false);
 
     for statement in statements {
@@ -49,14 +56,22 @@ pub fn eval_statements<'ast>(
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub enum Error<'ast> {
-    InfixTypeMismatch(InfixOperator, Object<'ast>, Object<'ast>),
-    PrefixTypeMismatch(PrefixOperator, Object<'ast>),
-    IdentifierNotFound(&'ast str),
+pub enum Error {
+    InfixTypeMismatch(InfixOperator, String, String),
+    PrefixTypeMismatch(PrefixOperator, String),
+    IdentifierNotFound(String),
+    NotCallable(String),
+    ArgumentCountMismatch(String),
+    TypeMismatch(String),
+    NotIndexable,
+    OutOfBounds,
 }
-impl Display for Error<'_> {
+impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::TypeMismatch(obj) => {
+                write!(f, "Type mismatch: {}", obj)
+            }
             Error::InfixTypeMismatch(op, left, right) => {
                 write!(f, "Type mismatch: {} {} {}", left, op, right)
             }
@@ -66,36 +81,55 @@ impl Display for Error<'_> {
             Error::IdentifierNotFound(ident) => {
                 write!(f, "Identifier not found: {}", ident)
             }
+            Error::NotCallable(obj) => {
+                write!(f, "Not callable: {}", obj)
+            }
+            Error::NotIndexable => {
+                write!(f, "Not indexable")
+            }
+            Error::OutOfBounds => {
+                write!(f, "Out of bounds")
+            }
+            Error::ArgumentCountMismatch(func_name) => {
+                write!(
+                    f,
+                    "Argument count mismatch for function with arguments \"{}\"",
+                    func_name
+                )
+            }
         }
     }
 }
-impl std::error::Error for Error<'_> {}
+impl std::error::Error for Error {}
 
 fn eval_expression<'ast>(
     expr: Expression<'ast>,
     env: Rc<RefCell<Environment<'ast>>>,
-) -> Result<ReturnableObject<'ast>, Error<'ast>> {
+) -> Result<ReturnableObject<'ast>, Error> {
     match expr {
         Expression::IntLiteral(integer) => Ok(Object::Integer(integer).into()),
         Expression::Boolean(boolean) => Ok(Object::Boolean(boolean).into()),
         Expression::Prefix(PrefixOperator::Negative, expr) => {
             match eval_expression(*expr, env)?.0 {
                 Object::Integer(integer) => Ok(Object::Integer(-integer).into()),
-                obj @ Object::Boolean(_) => {
-                    Err(Error::PrefixTypeMismatch(PrefixOperator::Negative, obj))
-                }
-                Object::Null => Err(Error::PrefixTypeMismatch(
+                obj @ Object::Boolean(_) => Err(Error::PrefixTypeMismatch(
                     PrefixOperator::Negative,
-                    Object::Null,
+                    obj.to_string(),
                 )),
-                Object::Function { arguments } => todo!(),
+                other => Err(Error::PrefixTypeMismatch(
+                    PrefixOperator::Negative,
+                    other.to_string(),
+                )),
             }
         }
         Expression::Prefix(PrefixOperator::Not, expr) => match eval_expression(*expr, env)?.0 {
             Object::Integer(integer) => Ok(Object::Boolean(integer == 0).into()),
             Object::Boolean(boolean) => Ok(Object::Boolean(!boolean).into()),
             Object::Null => Ok(Object::Boolean(true).into()),
-            Object::Function { arguments } => todo!(),
+            other => Err(Error::PrefixTypeMismatch(
+                PrefixOperator::Not,
+                other.to_string(),
+            )),
         },
         Expression::Infix(infix_operator, left_expr, right_expr, _) => {
             eval_infix(infix_operator, *left_expr, *right_expr, env).map(Object::into)
@@ -110,11 +144,14 @@ fn eval_expression<'ast>(
         // foo.ok_or(Error::IdentifierNotFound(ident))
         // Err(Error::IdentifierNotFound(ident))
         // }
-        Expression::Identifier(ident) => env
-            .borrow()
-            .get(&ident)
-            .map(|obj| ReturnableObject(obj.clone(), false))
-            .ok_or(Error::IdentifierNotFound(ident)),
+        Expression::Identifier(ident) => {
+            let env_borrow = env.borrow();
+            if let Some(obj) = env_borrow.get(&ident) {
+                Ok(ReturnableObject(obj.clone(), false))
+            } else {
+                Err(Error::IdentifierNotFound(ident.to_string()))
+            }
+        }
         Expression::If(condition, consequence, alternative) => {
             let condition = { eval_expression(*condition, env.clone())?.0 };
             if condition.is_truthy() {
@@ -133,8 +170,36 @@ fn eval_expression<'ast>(
                 }
             }
         }
-        Expression::Func(vec, vec1) => todo!(),
-        Expression::Call(expression, vec) => todo!(),
+        Expression::Func(arguments, body) => Ok(Object::Function {
+            arguments,
+            body,
+            captured_env: env.clone(),
+        }
+        .into()),
+        Expression::Call(expr, passed_values) => {
+            let obj = eval_expression(*expr, env.clone())?.0;
+            match obj {
+                Object::Function {
+                    arguments,
+                    body,
+                    captured_env,
+                } => {
+                    // captured_env.add_outer(env.clone());
+
+                    if arguments.len() != passed_values.len() {
+                        return Err(Error::ArgumentCountMismatch(arguments.join(",")));
+                    }
+                    for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
+                        captured_env
+                            .borrow_mut()
+                            .set(arg_name, eval_expression(expr, env.clone())?.0)
+                    }
+
+                    eval_statements(body, captured_env)
+                }
+                not_callable_obj => Err(Error::NotCallable(not_callable_obj.to_string())),
+            }
+        }
     }
 }
 
@@ -143,7 +208,7 @@ fn eval_infix<'ast>(
     left_expr: Expression<'ast>,
     right_expr: Expression<'ast>,
     env: Rc<RefCell<Environment<'ast>>>,
-) -> Result<Object<'ast>, Error<'ast>> {
+) -> Result<Object<'ast>, Error> {
     let ReturnableObject(left_obj, _) = eval_expression(left_expr, env.clone())?;
     let ReturnableObject(right_obj, _) = eval_expression(right_expr, env.clone())?;
     match (&infix_operator, &left_obj, &right_obj) {
@@ -152,17 +217,17 @@ fn eval_infix<'ast>(
             Ok(Object::Boolean(left_obj != right_obj))
         }
         (_, Object::Function { .. }, _) | (_, _, Object::Function { .. }) => Err(
-            Error::InfixTypeMismatch(infix_operator, left_obj, right_obj),
+            Error::InfixTypeMismatch(infix_operator, left_obj.to_string(), right_obj.to_string()),
         ),
         (_, Object::Null, _) | (_, _, Object::Null) => Err(Error::InfixTypeMismatch(
             infix_operator,
-            left_obj,
-            right_obj,
+            left_obj.to_string(),
+            right_obj.to_string(),
         )),
         (_, Object::Boolean(_), _) | (_, _, Object::Boolean(_)) => Err(Error::InfixTypeMismatch(
             infix_operator,
-            left_obj,
-            right_obj,
+            left_obj.to_string(),
+            right_obj.to_string(),
         )),
         (InfixOperator::Add, Object::Integer(left_int), Object::Integer(right_int)) => {
             Ok(Object::Integer(left_int + right_int))
@@ -196,7 +261,7 @@ impl<'ast> Into<ReturnableObject<'ast>> for Object<'ast> {
 fn eval_statement<'ast>(
     statement: Statement<'ast>,
     env: Rc<RefCell<Environment<'ast>>>,
-) -> Result<ReturnableObject<'ast>, Error<'ast>> {
+) -> Result<ReturnableObject<'ast>, Error> {
     match statement {
         Statement::Let(identifier, expression) => {
             let res = eval_expression(expression, env.clone());
@@ -237,6 +302,25 @@ mod test {
         let result = eval_statements(parsed_ast.statements, environment).expect("Should evaluate");
 
         assert_eq!(result.0, Object::Integer(10));
+    }
+
+    #[test]
+    fn functions() {
+        let input = "
+let func = fn(x) {
+    x + 2
+};
+func(1)";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let environment = Rc::new(RefCell::new(Environment::new()));
+
+        let result = eval_statements(parsed_ast.statements, environment).expect("Should evaluate");
+
+        assert_eq!(result.0, Object::Integer(3));
     }
 
     #[test]
@@ -283,7 +367,10 @@ mod test {
         let environment = Rc::new(RefCell::new(Environment::new()));
         let result = eval_statements(parsed_ast.statements, environment);
 
-        assert_eq!(result, Result::Err(Error::IdentifierNotFound("foobar")));
+        assert_eq!(
+            result,
+            Result::Err(Error::IdentifierNotFound("foobar".to_owned()))
+        );
     }
 
     #[test]
