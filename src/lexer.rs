@@ -49,14 +49,14 @@ impl<'i> Iterator for Lexer<'i> {
 
         let t = match ch {
             letter if letter.is_alphabetic() || letter == '_' => {
-                let word = read_word(&self.input);
+                let word = read_word(self.input);
 
                 self.input = &self.input[word.len()..];
 
                 return Some(lookup_keyword(word));
             }
             digit if digit.is_numeric() => {
-                let number = read_int(&self.input);
+                let number = read_int(self.input);
 
                 self.input = &self.input[number.len()..];
 

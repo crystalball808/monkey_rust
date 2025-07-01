@@ -10,6 +10,12 @@ pub struct Environment<'ast> {
     pub store: HashMap<&'ast str, Object<'ast>>,
     outer: Option<Rc<RefCell<Environment<'ast>>>>,
 }
+impl<'ast> Default for Environment<'ast> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'ast> Environment<'ast> {
     pub fn new() -> Self {
         Self {
@@ -146,7 +152,7 @@ fn eval_expression<'ast>(
         // }
         Expression::Identifier(ident) => {
             let env_borrow = env.borrow();
-            if let Some(obj) = env_borrow.get(&ident) {
+            if let Some(obj) = env_borrow.get(ident) {
                 Ok(ReturnableObject(obj.clone(), false))
             } else {
                 Err(Error::IdentifierNotFound(ident.to_string()))
@@ -159,15 +165,13 @@ fn eval_expression<'ast>(
                     consequence,
                     Rc::new(RefCell::new(Environment::with_outer(env))),
                 )
+            } else if alternative.is_some() {
+                eval_statements(
+                    alternative.unwrap(),
+                    Rc::new(RefCell::new(Environment::with_outer(env))),
+                )
             } else {
-                if alternative.is_some() {
-                    eval_statements(
-                        alternative.unwrap(),
-                        Rc::new(RefCell::new(Environment::with_outer(env))),
-                    )
-                } else {
-                    Ok(Object::Null.into())
-                }
+                Ok(Object::Null.into())
             }
         }
         Expression::Func(arguments, body) => Ok(Object::Function {
@@ -253,9 +257,9 @@ fn eval_infix<'ast>(
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ReturnableObject<'ast>(pub Object<'ast>, bool);
-impl<'ast> Into<ReturnableObject<'ast>> for Object<'ast> {
-    fn into(self) -> ReturnableObject<'ast> {
-        ReturnableObject(self, false)
+impl<'ast> From<Object<'ast>> for ReturnableObject<'ast> {
+    fn from(val: Object<'ast>) -> Self {
+        ReturnableObject(val, false)
     }
 }
 fn eval_statement<'ast>(

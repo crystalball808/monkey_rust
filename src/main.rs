@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    fs,
     io::{self, Write},
     path::PathBuf,
     rc::Rc,
@@ -40,9 +41,22 @@ fn main() {
             }
         }
         Commands::Run { path } => {
-            let foo = path.into_os_string().into_string().unwrap();
-            println!("run {foo} todo");
+            let script = fs::read_to_string(path).expect("No such file");
+
+            run_script(&script);
         }
+    }
+}
+fn run_script(script: &str) {
+    let environment = Rc::new(RefCell::new(Environment::new()));
+
+    let lexer = Lexer::new(script);
+    match parser::Parser::new(lexer).parse_program() {
+        Ok(program) => match eval_statements(program.statements, environment) {
+            Ok(result) => println!("{}", result.0),
+            Err(error) => println!("[Evaluation Error] {error}"),
+        },
+        Err(error) => println!("[Parser Error] {error}"),
     }
 }
 
