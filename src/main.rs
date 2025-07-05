@@ -41,7 +41,12 @@ fn main() {
         Commands::Run { path } => {
             let script = fs::read_to_string(path).expect("No such file");
 
+            use std::time::Instant;
+            let now = Instant::now();
             run_script(&script);
+
+            let elapsed = now.elapsed();
+            println!("Elapsed: {:.2?}", elapsed)
         }
     }
 }
