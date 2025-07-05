@@ -35,7 +35,7 @@ impl<'ast> Environment<'ast> {
     pub fn get(&self, key: &str) -> Option<Object<'ast>> {
         if let Some(val) = self.store.get(key) {
             Some(val.clone())
-        } else if let Some(ref outer) = self.outer {
+        } else if let Some(outer) = self.outer.clone() {
             outer.borrow().get(key)
         } else {
             None
@@ -194,9 +194,8 @@ fn eval_expression<'ast>(
                         return Err(Error::ArgumentCountMismatch(arguments.join(",")));
                     }
                     for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
-                        captured_env
-                            .borrow_mut()
-                            .set(arg_name, eval_expression(expr, env.clone())?.0)
+                        let obj = eval_expression(expr, env.clone())?.0;
+                        captured_env.borrow_mut().set(arg_name, obj)
                     }
 
                     eval_statements(body, captured_env)
