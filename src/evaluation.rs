@@ -205,21 +205,20 @@ fn eval_expression<'ast>(
                     body,
                     captured_env,
                 } => {
+                    // Create a new environment for the function call that extends the captured environment
+                    let function_env = Rc::new(RefCell::new(Environment::with_outer(captured_env.clone())));
+                    // Connect the captured environment to the current environment for recursive calls
                     captured_env.borrow_mut().add_outer(env.clone());
-                    // captured_env
-                    //     .borrow_mut()
-                    //     .add_outer(Rc::new(RefCell::new(env.borrow().clone())));
-                    captured_env.borrow().log();
-
+                    
                     if arguments.len() != passed_values.len() {
                         return Err(Error::ArgumentCountMismatch(arguments.join(",")));
                     }
                     for (arg_name, expr) in arguments.into_iter().zip(passed_values.into_iter()) {
                         let obj = eval_expression(expr, env.clone())?.0;
-                        captured_env.borrow_mut().set(arg_name, obj)
+                        function_env.borrow_mut().set(arg_name, obj)
                     }
 
-                    eval_statements(body, captured_env)
+                    eval_statements(body, function_env)
                 }
                 not_callable_obj => Err(Error::NotCallable(not_callable_obj.to_string())),
             }
