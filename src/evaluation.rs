@@ -10,6 +10,17 @@ pub struct Environment<'ast> {
     pub store: HashMap<&'ast str, Object<'ast>>,
     outer: Option<Rc<RefCell<Environment<'ast>>>>,
 }
+impl Clone for Environment<'_> {
+    fn clone(&self) -> Self {
+        Self {
+            store: self.store.clone(),
+            outer: self
+                .outer
+                .clone()
+                .map(|o| Rc::new(RefCell::new(o.borrow().clone()))),
+        }
+    }
+}
 impl<'ast> Default for Environment<'ast> {
     fn default() -> Self {
         Self::new()
@@ -23,11 +34,17 @@ impl<'ast> Environment<'ast> {
             outer: None,
         }
     }
+    pub fn log(&self) {
+        dbg!(self);
+    }
     pub fn with_outer(outer: Rc<RefCell<Environment<'ast>>>) -> Self {
         Self {
             store: HashMap::new(),
             outer: Some(outer),
         }
+    }
+    pub fn add_outer(&mut self, outer: Rc<RefCell<Environment<'ast>>>) {
+        self.outer = Some(outer);
     }
     pub fn set(&mut self, key: &'ast str, value: Object<'ast>) {
         self.store.insert(key, value);
@@ -188,7 +205,11 @@ fn eval_expression<'ast>(
                     body,
                     captured_env,
                 } => {
-                    // captured_env.add_outer(env.clone());
+                    captured_env.borrow_mut().add_outer(env.clone());
+                    // captured_env
+                    //     .borrow_mut()
+                    //     .add_outer(Rc::new(RefCell::new(env.borrow().clone())));
+                    captured_env.borrow().log();
 
                     if arguments.len() != passed_values.len() {
                         return Err(Error::ArgumentCountMismatch(arguments.join(",")));
@@ -416,5 +437,53 @@ func(1)";
 
             assert_eq!(result.0, test.output, "input: {}", test.input);
         }
+    }
+    #[test]
+    fn currying() {
+        let input = "
+let add = fn(x) {
+    fn (y) {
+        x + y
+    }
+};
+
+let add_two = add(2);
+
+add_two(3)
+";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let environment = Rc::new(RefCell::new(Environment::new()));
+
+        let result = eval_statements(parsed_ast.statements, environment).expect("Should evaluate");
+
+        assert_eq!(result.0, Object::Integer(5));
+    }
+
+    #[test]
+    fn recursion() {
+        let input = "
+let fib = fn(x) { 
+  if (x < 2) {
+      return x;
+  } else {
+      return fib(x - 2) + fib(x - 1);
+  }
+};
+
+fib(5)
+";
+        let lexer = Lexer::new(input);
+        let parser = Parser::new(lexer);
+        let parsed_ast = parser
+            .parse_program()
+            .expect("Should be parsed successfully");
+        let environment = Rc::new(RefCell::new(Environment::new()));
+        let result = eval_statements(parsed_ast.statements, environment).expect("Should evaluate");
+
+        assert_eq!(result.0, Object::Integer(5));
     }
 }
