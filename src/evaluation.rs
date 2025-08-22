@@ -206,10 +206,11 @@ fn eval_expression<'ast>(
                     captured_env,
                 } => {
                     // Create a new environment for the function call that extends the captured environment
-                    let function_env = Rc::new(RefCell::new(Environment::with_outer(captured_env.clone())));
+                    let function_env =
+                        Rc::new(RefCell::new(Environment::with_outer(captured_env.clone())));
                     // Connect the captured environment to the current environment for recursive calls
                     captured_env.borrow_mut().add_outer(env.clone());
-                    
+
                     if arguments.len() != passed_values.len() {
                         return Err(Error::ArgumentCountMismatch(arguments.join(",")));
                     }
